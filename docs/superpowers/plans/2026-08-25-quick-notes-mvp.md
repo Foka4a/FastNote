@@ -2714,6 +2714,7 @@ git commit -m "feature[quick-notes-mvp]: add AndroidSpeechRecognizerAdapter"
 
 **Interfaces:**
 - Produces: `OverlayPermission.isGranted(context): Boolean`, `OverlayPermission.requestIntent(context): Intent`. Consumed by `OverlayCaptureService` (Task 15) is not needed (the service is only ever started once permission is granted) — consumed by `MainActivity`/`OnboardingScreen` to gate the request flow.
+- This task also requests the `RECORD_AUDIO` runtime permission (dangerous permission since API 23, declared in the manifest by Task 13 but never requested until now — without this, voice capture fails silently on every real device). Uses the standard OS permission dialog via `ActivityResultContracts.RequestPermission()`, triggered once on first launch — no custom explanation screen needed, unlike the overlay permission's special-access flow.
 
 - [ ] **Step 1: Write the failing intent-shape test**
 
@@ -2804,11 +2805,16 @@ Modify `MainActivity.kt`:
 ```kotlin
 package com.quicknotes.app
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -2824,6 +2830,14 @@ class MainActivity : ComponentActivity() {
         val startRoute = intent.getStringExtra("route") ?: "inbox"
         setContent {
             var showOnboarding by remember { mutableStateOf(!OverlayPermission.isGranted(this)) }
+            val requestAudioPermission = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestPermission()
+            ) { /* no-op: if denied, voice capture surfaces its existing "unavailable" error path */ }
+            LaunchedEffect(Unit) {
+                val granted = this@MainActivity.checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
+                    PackageManager.PERMISSION_GRANTED
+                if (!granted) requestAudioPermission.launch(Manifest.permission.RECORD_AUDIO)
+            }
             MaterialTheme {
                 Surface {
                     if (showOnboarding) {
