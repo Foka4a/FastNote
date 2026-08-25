@@ -4,14 +4,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.quicknotes.app.AppContainer
 import com.quicknotes.app.ui.editor.EditorViewModel
+import com.quicknotes.app.ui.folders.FoldersViewModel
 import com.quicknotes.app.ui.inbox.InboxViewModel
 import com.quicknotes.app.ui.search.SearchViewModel
+import com.quicknotes.app.ui.tags.TagsViewModel
 
 class ViewModelFactory(private val container: AppContainer) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T = when (modelClass) {
         InboxViewModel::class.java -> InboxViewModel(container.noteRepository) as T
         SearchViewModel::class.java -> SearchViewModel(container.searchNotesUseCase) as T
+        TagsViewModel::class.java -> TagsViewModel(container.tagRepository) as T
+        FoldersViewModel::class.java -> FoldersViewModel(container.folderRepository) as T
         else -> throw IllegalArgumentException("Unknown ViewModel: $modelClass")
     }
 }
