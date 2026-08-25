@@ -3236,15 +3236,19 @@ fun VoiceCaptureOverlay(
                     is VoiceCaptureState.Listening -> Text("Ouvindo...")
                     is VoiceCaptureState.Transcribed -> {
                         when (behavior) {
+                            // onSave alone, not onDismiss too: the service's saveNote() already
+                            // closes the overlay itself once the async Room write completes.
+                            // Calling onDismiss here would race stopSelf() ahead of that write
+                            // (the exact bug Task 15's review caught and fixed for text capture).
                             VoiceCaptureBehavior.AUTO_SAVE -> LaunchedEffect(current.text) {
-                                onSave(current.text); onDismiss()
+                                onSave(current.text)
                             }
                             VoiceCaptureBehavior.CONTINUE_EDITING -> LaunchedEffect(current.text) {
                                 onContinueEditing(current.text); onDismiss()
                             }
                             VoiceCaptureBehavior.REVIEW_BEFORE_SAVE -> {
                                 Text(current.text)
-                                Button(onClick = { onSave(current.text); onDismiss() }) { Text("Salvar") }
+                                Button(onClick = { onSave(current.text) }) { Text("Salvar") }
                                 Button(onClick = onDismiss) { Text("Descartar") }
                             }
                         }
