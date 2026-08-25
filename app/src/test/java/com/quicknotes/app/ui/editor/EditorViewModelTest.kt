@@ -78,6 +78,26 @@ class EditorViewModelTest {
     }
 
     @Test
+    fun newNoteStartsWithPrefilledContentFromVoiceCapture() = runTest {
+        val viewModel = EditorViewModel(FakeNoteRepository(), noteId = null, prefillContent = "ditado por voz")
+
+        assertEquals("ditado por voz", viewModel.uiState.value.content)
+    }
+
+    @Test
+    fun prefillIsIgnoredWhenOpeningAnExistingNote() = runTest {
+        val repository = FakeNoteRepository()
+        val id = repository.saveNote(
+            Note(title = "Original", content = "conteúdo salvo", createdAt = 1, updatedAt = 1, folderId = null,
+                favorite = false, archived = false, inbox = true, captureSource = CaptureSource.APP)
+        )
+
+        val viewModel = EditorViewModel(repository, noteId = id, prefillContent = "não deve aparecer")
+
+        assertEquals("conteúdo salvo", viewModel.uiState.value.content)
+    }
+
+    @Test
     fun toggleFavoriteFlipsState() = runTest {
         val viewModel = EditorViewModel(FakeNoteRepository(), noteId = null)
         assertTrue(!viewModel.uiState.value.favorite)

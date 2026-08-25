@@ -4,6 +4,8 @@ import android.Manifest
 import android.os.ParcelFileDescriptor
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
@@ -44,5 +46,26 @@ class QuickNotesNavHostTest {
         // (InboxScreen.kt tags its LazyColumn "inbox_list" for exactly this check) rather
         // than crashing or landing on a blank composable.
         composeRule.onNodeWithTag("inbox_list").assertExists()
+    }
+
+    @Test
+    fun fabOpensEditorForANewNote() {
+        // The FAB is the only in-app entry point to "create a note", so it has to land on
+        // the Editor route with noteId=0 (treated as "new note" by the NavHost).
+        composeRule.onNodeWithTag("new_note_fab").performClick()
+
+        composeRule.onNodeWithText("Salvar").assertExists()
+        composeRule.onNodeWithTag("inbox_list").assertDoesNotExist()
+    }
+
+    @Test
+    fun overflowMenuReachesSettings() {
+        // Settings (and the other five secondary screens) had no entry point at all before
+        // the top bar menu existed; this proves the menu actually navigates.
+        composeRule.onNodeWithTag("nav_menu_button").performClick()
+        composeRule.onNodeWithText("Configurações").performClick()
+
+        composeRule.onNodeWithText("Após transcrever a voz:").assertExists()
+        composeRule.onNodeWithText("Revisar antes de salvar").assertExists()
     }
 }

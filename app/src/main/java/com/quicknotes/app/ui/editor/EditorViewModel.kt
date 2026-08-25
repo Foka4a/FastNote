@@ -24,9 +24,14 @@ data class EditorUiState(
 
 class EditorViewModel(
     private val noteRepository: NoteRepository,
-    private val noteId: Long?
+    private val noteId: Long?,
+    prefillContent: String? = null
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(EditorUiState())
+    // Only meaningful for a brand new note (voice capture handed over its transcription).
+    private val _uiState = MutableStateFlow(
+        if (noteId == null && !prefillContent.isNullOrEmpty()) EditorUiState(content = prefillContent)
+        else EditorUiState()
+    )
     val uiState: StateFlow<EditorUiState> = _uiState.asStateFlow()
 
     init {
