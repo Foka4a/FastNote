@@ -7,6 +7,8 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
@@ -23,6 +25,7 @@ import com.quicknotes.app.domain.voice.VoiceCaptureController
 import com.quicknotes.app.voice.AndroidSpeechRecognizerAdapter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -41,6 +44,8 @@ class OverlayCaptureService : Service() {
     private lateinit var windowManager: WindowManager
     private var composeView: ComposeView? = null
     private var lifecycleOwner: OverlayLifecycleOwner? = null
+    private var voiceRecognizer: AndroidSpeechRecognizerAdapter? = null
+    private var saving = false
     private val scope = CoroutineScope(Dispatchers.Main)
 
     override fun onCreate() {
@@ -51,13 +56,31 @@ class OverlayCaptureService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(NOTIFICATION_ID, buildNotification())
-        when (intent?.getStringExtra(EXTRA_MODE)) {
+        val mode = intent?.getStringExtra(EXTRA_MODE)
+        startCaptureForeground(voice = mode == MODE_VOICE)
+        when (mode) {
             MODE_TEXT -> showTextCapture()
             MODE_VOICE -> showVoiceCapture()
             else -> showTextCapture()
         }
         return START_NOT_STICKY
+    }
+
+    // The manifest declares "specialUse|microphone", but the microphone type must only be
+    // claimed while SpeechRecognizer is actually listening: on API 34 claiming it throws
+    // SecurityException unless RECORD_AUDIO is granted, which would kill text capture too.
+    private fun startCaptureForeground(voice: Boolean) {
+        val notification = buildNotification()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, notification)
+            return
+        }
+        var type =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            else 0
+        val micGranted = checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        if (voice && micGranted) type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+        startForeground(NOTIFICATION_ID, notification, type)
     }
 
     private fun showTextCapture() {
@@ -71,7 +94,9 @@ class OverlayCaptureService : Service() {
 
     private fun showVoiceCapture() {
         val container = (application as QuickNotesApp).container
-        val controller = VoiceCaptureController(AndroidSpeechRecognizerAdapter(this))
+        val recognizer = AndroidSpeechRecognizerAdapter(this)
+        voiceRecognizer = recognizer
+        val controller = VoiceCaptureController(recognizer)
 
         showOverlay { onDismiss ->
             val behavior by androidx.compose.runtime.produceState(
@@ -98,6 +123,13 @@ class OverlayCaptureService : Service() {
 
     private fun showOverlay(content: @androidx.compose.runtime.Composable (onDismiss: () -> Unit) -> Unit) {
         if (composeView != null) return
+        // Without SYSTEM_ALERT_WINDOW (denied, skipped in onboarding, or revoked later)
+        // addView() throws BadTokenException and kills the process. Both capture modes
+        // route through here, so this single guard covers text and voice.
+        if (!OverlayPermission.isGranted(this)) {
+            stopSelf()
+            return
+        }
         val owner = OverlayLifecycleOwner().apply { attach() }
         lifecycleOwner = owner
 
@@ -123,6 +155,12 @@ class OverlayCaptureService : Service() {
     }
 
     private fun saveNote(text: String, source: CaptureSource) {
+        if (saving) return
+        if (text.isBlank()) {
+            closeOverlay()
+            return
+        }
+        saving = true
         val container = (application as QuickNotesApp).container
         scope.launch {
             container.createNoteUseCase(title = text.take(60), content = text, captureSource = source)
@@ -135,6 +173,9 @@ class OverlayCaptureService : Service() {
         composeView = null
         lifecycleOwner?.detach()
         lifecycleOwner = null
+        voiceRecognizer?.destroy()
+        voiceRecognizer = null
+        saving = false
         stopSelf()
     }
 
@@ -154,5 +195,8 @@ class OverlayCaptureService : Service() {
         super.onDestroy()
         composeView?.let { windowManager.removeView(it) }
         lifecycleOwner?.detach()
+        voiceRecognizer?.destroy()
+        voiceRecognizer = null
+        scope.cancel()
     }
 }
