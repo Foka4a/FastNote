@@ -34,7 +34,7 @@ fun TextCaptureOverlay(onSave: (String) -> Unit, onDismiss: () -> Unit) {
                     label = { Text("Nova nota") },
                     modifier = Modifier.focusRequester(focusRequester)
                 )
-                Button(onClick = { onSave(text); onDismiss() }) { Text("Salvar") }
+                Button(onClick = { onSave(text) }) { Text("Salvar") }
             }
         }
     }

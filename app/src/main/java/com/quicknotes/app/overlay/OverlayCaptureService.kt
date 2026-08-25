@@ -70,6 +70,7 @@ class OverlayCaptureService : Service() {
     }
 
     private fun showOverlay(content: @androidx.compose.runtime.Composable (onDismiss: () -> Unit) -> Unit) {
+        if (composeView != null) return
         val owner = OverlayLifecycleOwner().apply { attach() }
         lifecycleOwner = owner
 
