@@ -12,14 +12,18 @@ import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
 import android.view.WindowManager
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.quicknotes.app.QuickNotesApp
 import com.quicknotes.app.domain.model.CaptureSource
+import com.quicknotes.app.domain.voice.VoiceCaptureController
+import com.quicknotes.app.voice.AndroidSpeechRecognizerAdapter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class OverlayCaptureService : Service() {
@@ -66,7 +70,30 @@ class OverlayCaptureService : Service() {
     }
 
     private fun showVoiceCapture() {
-        // Wired in Task 16.
+        val container = (application as QuickNotesApp).container
+        val controller = VoiceCaptureController(AndroidSpeechRecognizerAdapter(this))
+
+        showOverlay { onDismiss ->
+            val behavior by androidx.compose.runtime.produceState(
+                initialValue = com.quicknotes.app.domain.model.VoiceCaptureBehavior.REVIEW_BEFORE_SAVE
+            ) {
+                value = container.settingsRepository.voiceCaptureBehavior.first()
+            }
+            VoiceCaptureOverlay(
+                controller = controller,
+                behavior = behavior,
+                onSave = { text -> saveNote(text, CaptureSource.WIDGET_VOICE) },
+                onContinueEditing = { text ->
+                    startActivity(
+                        Intent(this, com.quicknotes.app.MainActivity::class.java)
+                            .putExtra("route", "editor?noteId=0")
+                            .putExtra("prefillContent", text)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                },
+                onDismiss = { closeOverlay() }
+            )
+        }
     }
 
     private fun showOverlay(content: @androidx.compose.runtime.Composable (onDismiss: () -> Unit) -> Unit) {
