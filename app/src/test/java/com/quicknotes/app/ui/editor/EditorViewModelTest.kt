@@ -60,6 +60,24 @@ class EditorViewModelTest {
     }
 
     @Test
+    fun editingExistingNotePreservesCreatedAt() = runTest {
+        val repository = FakeNoteRepository()
+        val id = repository.saveNote(
+            Note(title = "Original", content = "", createdAt = 1000, updatedAt = 1000, folderId = null,
+                favorite = false, archived = false, inbox = true, captureSource = CaptureSource.APP)
+        )
+        val viewModel = EditorViewModel(repository, noteId = id)
+        viewModel.uiState.value // trigger load in real impl via init block
+
+        viewModel.updateTitle("Editado")
+        viewModel.save {}
+
+        val saved = repository.getNote(id)!!
+        assertEquals(1000, saved.createdAt)
+        assertTrue(saved.updatedAt > 1000)
+    }
+
+    @Test
     fun toggleFavoriteFlipsState() = runTest {
         val viewModel = EditorViewModel(FakeNoteRepository(), noteId = null)
         assertTrue(!viewModel.uiState.value.favorite)

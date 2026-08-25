@@ -18,7 +18,8 @@ data class EditorUiState(
     val tagIds: List<Long> = emptyList(),
     val favorite: Boolean = false,
     val archived: Boolean = false,
-    val inbox: Boolean = true
+    val inbox: Boolean = true,
+    val createdAt: Long = System.currentTimeMillis()
 )
 
 class EditorViewModel(
@@ -35,7 +36,8 @@ class EditorViewModel(
                     _uiState.value = EditorUiState(
                         id = note.id, title = note.title, content = note.content,
                         folderId = note.folderId, tagIds = note.tagIds,
-                        favorite = note.favorite, archived = note.archived, inbox = note.inbox
+                        favorite = note.favorite, archived = note.archived, inbox = note.inbox,
+                        createdAt = note.createdAt
                     )
                 }
             }
@@ -57,7 +59,7 @@ class EditorViewModel(
             noteRepository.saveNote(
                 Note(
                     id = state.id, title = state.title, content = state.content,
-                    createdAt = now, updatedAt = now, folderId = state.folderId,
+                    createdAt = state.createdAt, updatedAt = now, folderId = state.folderId,
                     favorite = state.favorite, archived = state.archived, inbox = state.inbox,
                     captureSource = CaptureSource.APP, tagIds = state.tagIds
                 )
