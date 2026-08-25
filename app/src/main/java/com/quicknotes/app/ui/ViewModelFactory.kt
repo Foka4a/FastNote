@@ -9,6 +9,7 @@ import com.quicknotes.app.ui.favorites.FavoritesViewModel
 import com.quicknotes.app.ui.folders.FoldersViewModel
 import com.quicknotes.app.ui.inbox.InboxViewModel
 import com.quicknotes.app.ui.search.SearchViewModel
+import com.quicknotes.app.ui.settings.SettingsViewModel
 import com.quicknotes.app.ui.tags.TagsViewModel
 
 class ViewModelFactory(private val container: AppContainer) : ViewModelProvider.Factory {
@@ -20,6 +21,7 @@ class ViewModelFactory(private val container: AppContainer) : ViewModelProvider.
         FoldersViewModel::class.java -> FoldersViewModel(container.folderRepository) as T
         FavoritesViewModel::class.java -> FavoritesViewModel(container.noteRepository) as T
         ArchiveViewModel::class.java -> ArchiveViewModel(container.noteRepository) as T
+        SettingsViewModel::class.java -> SettingsViewModel(container.settingsRepository) as T
         else -> throw IllegalArgumentException("Unknown ViewModel: $modelClass")
     }
 }
