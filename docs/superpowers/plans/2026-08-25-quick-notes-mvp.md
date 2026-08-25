@@ -1278,11 +1278,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 
 @Composable
 fun InboxScreen(viewModel: InboxViewModel, onNoteClick: (Long) -> Unit) {
     val notes by viewModel.notes.collectAsState()
-    LazyColumn {
+    LazyColumn(modifier = Modifier.testTag("inbox_list")) {
         items(notes, key = { it.id }) { note ->
             ListItem(
                 headlineContent = { Text(note.title.ifBlank { note.content.take(40) }) },
@@ -2385,8 +2386,7 @@ class MainActivity : ComponentActivity() {
 package com.quicknotes.app.ui.nav
 
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.quicknotes.app.MainActivity
 import org.junit.Rule
@@ -2399,10 +2399,11 @@ class QuickNotesNavHostTest {
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     @Test
-    fun savingNoteFromEditorReturnsToInbox() {
-        // Inbox starts empty; navigate to editor directly via deep-linked route is out of scope here,
-        // so this test exercises the Inbox screen renders without crashing as the start destination.
-        composeRule.waitForIdle()
+    fun launchesOnInboxRouteByDefault() {
+        // Proves the NavHost's startDestination actually resolved to the Inbox screen
+        // (InboxScreen.kt tags its LazyColumn "inbox_list" for exactly this check) rather
+        // than crashing or landing on a blank composable.
+        composeRule.onNodeWithTag("inbox_list").assertExists()
     }
 }
 ```
@@ -2410,7 +2411,7 @@ class QuickNotesNavHostTest {
 - [ ] **Step 4: Run test, verify it builds and passes**
 
 Run: `./gradlew connectedAndroidTest --tests "com.quicknotes.app.ui.nav.QuickNotesNavHostTest"`
-Expected: PASS — confirms the whole nav graph compiles and `MainActivity` launches with it.
+Expected: PASS — confirms the whole nav graph compiles, `MainActivity` launches with it, and the start destination actually resolves to the Inbox screen.
 
 - [ ] **Step 5: Commit**
 
@@ -3291,7 +3292,6 @@ Note: `onContinueEditing` deep-links into the app with a `prefillContent` extra.
 ```kotlin
 package com.quicknotes.app.overlay
 
-import com.quicknotes.app.domain.model.VoiceCaptureBehavior
 import com.quicknotes.app.domain.voice.FakeVoiceRecognizer
 import com.quicknotes.app.domain.voice.VoiceCaptureController
 import com.quicknotes.app.domain.voice.VoiceCaptureState
@@ -3308,9 +3308,10 @@ class VoiceCaptureOverlayFlowTest {
         recognizer.emitResult("pesquisar biblioteca de gráficos")
 
         assertEquals(VoiceCaptureState.Transcribed("pesquisar biblioteca de gráficos"), controller.state.value)
-        // AUTO_SAVE and REVIEW_BEFORE_SAVE both reach Transcribed; the overlay Composable
-        // (exercised manually, see Step 5) decides whether to auto-persist or wait for a tap.
-        assert(VoiceCaptureBehavior.AUTO_SAVE != VoiceCaptureBehavior.REVIEW_BEFORE_SAVE)
+        // AUTO_SAVE and REVIEW_BEFORE_SAVE both reach Transcribed from here; which one
+        // auto-persists vs. waits for a tap is the overlay Composable's job, exercised
+        // manually in Step 5 (Compose state branching in a WindowManager overlay isn't
+        // practically unit-testable). This test only pins the controller's own contract.
     }
 }
 ```
