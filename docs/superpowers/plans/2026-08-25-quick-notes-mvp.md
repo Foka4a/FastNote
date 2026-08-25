@@ -2870,7 +2870,7 @@ git commit -m "feature[quick-notes-mvp]: add overlay permission helper and onboa
 - Create: `app/src/main/java/com/quicknotes/app/overlay/OverlayLifecycleOwner.kt`
 - Create: `app/src/main/java/com/quicknotes/app/overlay/TextCaptureOverlay.kt`
 - Create: `app/src/main/java/com/quicknotes/app/overlay/OverlayCaptureService.kt`
-- Modify: `app/src/main/AndroidManifest.xml` (register service, add `SYSTEM_ALERT_WINDOW` and `FOREGROUND_SERVICE` permissions)
+- Modify: `app/src/main/AndroidManifest.xml` (register service, add `FOREGROUND_SERVICE` permissions — `SYSTEM_ALERT_WINDOW` was already added by Task 14, don't re-add it)
 - Test: `app/src/androidTest/java/com/quicknotes/app/overlay/OverlayCaptureServiceTest.kt`
 
 **Interfaces:**
@@ -2967,9 +2967,8 @@ fun TextCaptureOverlay(onSave: (String) -> Unit, onDismiss: () -> Unit) {
 
 - [ ] **Step 3: Register manifest permissions and the service**
 
-Modify `AndroidManifest.xml` — add permissions before `<application>` and the service inside it:
+Modify `AndroidManifest.xml` — add permissions before `<application>` and the service inside it. `SYSTEM_ALERT_WINDOW` is already declared (Task 14 added it, since the overlay-permission onboarding flow needs it to function) — do not add it again, only these two:
 ```xml
-<uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 ```
