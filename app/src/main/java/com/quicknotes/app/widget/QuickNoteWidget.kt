@@ -39,6 +39,8 @@ import com.quicknotes.app.QuickNotesApp
 import com.quicknotes.app.R
 import com.quicknotes.app.overlay.OverlayCaptureService
 import kotlinx.coroutines.flow.first
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 class StartTextCaptureAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
@@ -84,6 +86,9 @@ private val Primary = ColorProvider(Color(0xFFC3C0FF))
 private val PrimaryContainer = ColorProvider(Color(0xFF4F46E5))
 private val OnPrimaryContainer = ColorProvider(Color(0xFFDAD7FF))
 private val OnSurfaceVariant = ColorProvider(Color(0xFF94A3B8))
+private val OutlineVariant = ColorProvider(Color(0xFF464555))
+
+private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
 
 class QuickNoteWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -99,21 +104,21 @@ class QuickNoteWidget : GlanceAppWidget() {
                     .padding(12.dp)
             ) {
                 // Left: quick capture
-                Column(modifier = GlanceModifier.defaultWeight().padding(end = 8.dp)) {
+                Column(modifier = GlanceModifier.defaultWeight().padding(end = 12.dp)) {
                     Text(
                         "Captura Rápida",
-                        style = TextStyle(color = Primary, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                        style = TextStyle(color = Primary, fontWeight = FontWeight.Medium, fontSize = 16.sp)
                     )
-                    Spacer(GlanceModifier.height(8.dp))
+                    Spacer(GlanceModifier.height(12.dp))
                     Row(
-                        modifier = GlanceModifier.fillMaxWidth().background(PillBackground).cornerRadius(20.dp).padding(4.dp),
+                        modifier = GlanceModifier.fillMaxWidth().background(PillBackground).cornerRadius(24.dp).padding(4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             modifier = GlanceModifier
-                                .size(32.dp)
+                                .size(40.dp)
                                 .background(PrimaryContainer)
-                                .cornerRadius(16.dp)
+                                .cornerRadius(20.dp)
                                 .clickable(actionRunCallback<StartVoiceCaptureAction>()),
                             contentAlignment = Alignment.Center
                         ) {
@@ -121,7 +126,7 @@ class QuickNoteWidget : GlanceAppWidget() {
                                 provider = ImageProvider(R.drawable.ic_mic),
                                 contentDescription = "Gravar áudio",
                                 colorFilter = ColorFilter.tint(OnPrimaryContainer),
-                                modifier = GlanceModifier.size(16.dp)
+                                modifier = GlanceModifier.size(20.dp)
                             )
                         }
                         Spacer(GlanceModifier.width(8.dp))
@@ -131,27 +136,27 @@ class QuickNoteWidget : GlanceAppWidget() {
                             modifier = GlanceModifier.defaultWeight().clickable(actionRunCallback<StartTextCaptureAction>())
                         )
                     }
-                    Spacer(GlanceModifier.height(10.dp))
-                    Text(
-                        "Abrir Inbox",
-                        style = TextStyle(color = OnSurfaceVariant, fontSize = 12.sp),
-                        modifier = GlanceModifier.clickable(actionRunCallback<OpenInboxAction>())
-                    )
                 }
 
+                // Divider between the two panels, matching the mockup's vertical rule.
+                Box(modifier = GlanceModifier.fillMaxSize().width(1.dp).background(OutlineVariant)) {}
+                Spacer(GlanceModifier.width(12.dp))
+
                 // Right: recent notes
-                Column(
-                    modifier = GlanceModifier
-                        .defaultWeight()
-                        .fillMaxSize()
-                        .background(PanelBackground)
-                        .cornerRadius(16.dp)
-                        .padding(8.dp)
-                ) {
-                    Text(
-                        "RECENTES",
-                        style = TextStyle(color = OnSurfaceVariant, fontWeight = FontWeight.Bold, fontSize = 10.sp)
-                    )
+                Column(modifier = GlanceModifier.defaultWeight().fillMaxSize().background(PanelBackground).padding(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "RECENTES",
+                            style = TextStyle(color = OnSurfaceVariant, fontWeight = FontWeight.Bold, fontSize = 10.sp),
+                            modifier = GlanceModifier.defaultWeight()
+                        )
+                        Image(
+                            provider = ImageProvider(R.drawable.ic_arrow_forward),
+                            contentDescription = "Abrir Inbox",
+                            colorFilter = ColorFilter.tint(OnSurfaceVariant),
+                            modifier = GlanceModifier.size(14.dp).clickable(actionRunCallback<OpenInboxAction>())
+                        )
+                    }
                     Spacer(GlanceModifier.height(6.dp))
                     recentNotes.forEach { note ->
                         Column(
@@ -162,11 +167,18 @@ class QuickNoteWidget : GlanceAppWidget() {
                                 .padding(6.dp)
                                 .clickable(actionRunCallback<OpenNoteAction>(actionParametersOf(NoteIdKey to note.id)))
                         ) {
-                            Text(
-                                note.title.ifBlank { note.content.take(20) },
-                                maxLines = 1,
-                                style = TextStyle(color = Primary, fontWeight = FontWeight.Medium, fontSize = 12.sp)
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    note.title.ifBlank { note.content.take(20) },
+                                    maxLines = 1,
+                                    style = TextStyle(color = Primary, fontWeight = FontWeight.Medium, fontSize = 12.sp),
+                                    modifier = GlanceModifier.defaultWeight()
+                                )
+                                Text(
+                                    timeFormat.format(java.util.Date(note.createdAt)),
+                                    style = TextStyle(color = OnSurfaceVariant, fontSize = 9.sp)
+                                )
+                            }
                             Text(
                                 note.content.take(30),
                                 maxLines = 1,
