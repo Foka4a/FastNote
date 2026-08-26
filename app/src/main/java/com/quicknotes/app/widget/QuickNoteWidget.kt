@@ -24,6 +24,7 @@ import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
+import androidx.glance.layout.fillMaxHeight
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
@@ -86,7 +87,6 @@ private val Primary = ColorProvider(Color(0xFFC3C0FF))
 private val PrimaryContainer = ColorProvider(Color(0xFF4F46E5))
 private val OnPrimaryContainer = ColorProvider(Color(0xFFDAD7FF))
 private val OnSurfaceVariant = ColorProvider(Color(0xFF94A3B8))
-private val OutlineVariant = ColorProvider(Color(0xFF464555))
 
 private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
 
@@ -138,12 +138,10 @@ class QuickNoteWidget : GlanceAppWidget() {
                     }
                 }
 
-                // Divider between the two panels, matching the mockup's vertical rule.
-                Box(modifier = GlanceModifier.fillMaxSize().width(1.dp).background(OutlineVariant)) {}
                 Spacer(GlanceModifier.width(12.dp))
 
                 // Right: recent notes
-                Column(modifier = GlanceModifier.defaultWeight().fillMaxSize().background(PanelBackground).padding(8.dp)) {
+                Column(modifier = GlanceModifier.defaultWeight().fillMaxHeight().background(PanelBackground).padding(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             "RECENTES",
