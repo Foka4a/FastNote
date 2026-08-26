@@ -89,9 +89,11 @@ fun QuickNotesNavHost(
     // which sets pendingRoute; navigate and let MainActivity clear it.
     LaunchedEffect(pendingRoute) {
         pendingRoute?.let {
-            // singleTop keeps repeated widget taps from stacking duplicates, but it would also
-            // discard a second voice transcription while the editor is already on top.
-            navController.navigate(it) { launchSingleTop = !it.contains("prefillContent") }
+            // singleTop keeps repeated widget taps from stacking duplicates, but for the editor
+            // route it also reuses the current EditorViewModel (wrong note's content/id) instead
+            // of loading the newly-deep-linked note or a fresh transcription — so never singleTop
+            // the editor route; menu destinations have no arguments, so singleTop is safe there.
+            navController.navigate(it) { launchSingleTop = !it.startsWith("editor") }
             onRouteHandled()
         }
     }
