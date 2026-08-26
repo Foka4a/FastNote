@@ -5,8 +5,11 @@ import android.content.Intent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.glance.ColorFilter
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.Image
+import androidx.glance.ImageProvider
 import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionParametersOf
 import androidx.glance.action.clickable
@@ -33,6 +36,7 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.quicknotes.app.MainActivity
 import com.quicknotes.app.QuickNotesApp
+import com.quicknotes.app.R
 import com.quicknotes.app.overlay.OverlayCaptureService
 import kotlinx.coroutines.flow.first
 
@@ -113,7 +117,12 @@ class QuickNoteWidget : GlanceAppWidget() {
                                 .clickable(actionRunCallback<StartVoiceCaptureAction>()),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("🎤", style = TextStyle(color = OnPrimaryContainer, fontSize = 14.sp))
+                            Image(
+                                provider = ImageProvider(R.drawable.ic_mic),
+                                contentDescription = "Gravar áudio",
+                                colorFilter = ColorFilter.tint(OnPrimaryContainer),
+                                modifier = GlanceModifier.size(16.dp)
+                            )
                         }
                         Spacer(GlanceModifier.width(8.dp))
                         Text(
