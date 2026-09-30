@@ -9,7 +9,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -24,6 +23,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.quicknotes.app.overlay.OverlayPermission
 import com.quicknotes.app.ui.nav.QuickNotesNavHost
 import com.quicknotes.app.ui.onboarding.OnboardingScreen
+import com.quicknotes.app.ui.theme.QuickNotesTheme
 import com.quicknotes.app.widget.QuickNoteWidget
 
 class MainActivity : ComponentActivity() {
@@ -61,7 +61,7 @@ class MainActivity : ComponentActivity() {
                 lifecycleOwner.lifecycle.addObserver(observer)
                 onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
             }
-            MaterialTheme {
+            QuickNotesTheme {
                 Surface {
                     if (showOnboarding) {
                         OnboardingScreen(

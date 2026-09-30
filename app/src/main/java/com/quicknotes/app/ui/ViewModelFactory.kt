@@ -15,7 +15,7 @@ import com.quicknotes.app.ui.tags.TagsViewModel
 class ViewModelFactory(private val container: AppContainer) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T = when (modelClass) {
-        InboxViewModel::class.java -> InboxViewModel(container.noteRepository) as T
+        InboxViewModel::class.java -> InboxViewModel(container.noteRepository, container.tagRepository) as T
         SearchViewModel::class.java -> SearchViewModel(container.searchNotesUseCase) as T
         TagsViewModel::class.java -> TagsViewModel(container.tagRepository) as T
         FoldersViewModel::class.java -> FoldersViewModel(container.folderRepository) as T
@@ -34,5 +34,5 @@ fun editorViewModelFactory(
     object : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            EditorViewModel(container.noteRepository, noteId, prefillContent) as T
+            EditorViewModel(container.noteRepository, container.tagRepository, container.folderRepository, noteId, prefillContent) as T
     }

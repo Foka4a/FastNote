@@ -1,27 +1,58 @@
 package com.quicknotes.app.ui.nav
 
+import android.net.Uri
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Inbox
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -30,9 +61,13 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.quicknotes.app.AppContainer
+import com.quicknotes.app.domain.model.CaptureSource
+import com.quicknotes.app.domain.model.VoiceCaptureBehavior
 import com.quicknotes.app.ui.ViewModelFactory
 import com.quicknotes.app.ui.archive.ArchiveScreen
 import com.quicknotes.app.ui.archive.ArchiveViewModel
+import com.quicknotes.app.ui.components.HeaderIconButton
+import com.quicknotes.app.ui.components.LocalSnackbarHostState
 import com.quicknotes.app.ui.editor.EditorScreen
 import com.quicknotes.app.ui.editor.EditorViewModel
 import com.quicknotes.app.ui.editorViewModelFactory
@@ -48,16 +83,36 @@ import com.quicknotes.app.ui.settings.SettingsScreen
 import com.quicknotes.app.ui.settings.SettingsViewModel
 import com.quicknotes.app.ui.tags.TagsScreen
 import com.quicknotes.app.ui.tags.TagsViewModel
+import com.quicknotes.app.ui.theme.Nocturne
+import kotlinx.coroutines.launch
 
 private const val EDITOR_ROUTE = "editor?noteId={noteId}&prefillContent={prefillContent}"
 
-private val MENU_DESTINATIONS = listOf(
-    "search" to "Buscar",
-    "tags" to "Tags",
-    "folders" to "Pastas",
-    "favorites" to "Favoritos",
-    "archive" to "Arquivo",
-    "settings" to "Configurações"
+private data class TabDef(val route: String, val label: String, val icon: ImageVector)
+private val TABS = listOf(
+    TabDef("inbox", "Inbox", Icons.Filled.Inbox),
+    TabDef("search", "Busca", Icons.Filled.Search),
+    TabDef("tags", "Tags", Icons.Filled.Tag),
+    TabDef("folders", "Pastas", Icons.Filled.Folder)
+)
+
+private data class ScreenHeader(val title: String, val subtitle: String)
+private val HEADERS = mapOf(
+    "inbox" to ScreenHeader("Inbox", "capturar primeiro, organizar depois"),
+    "search" to ScreenHeader("Busca", "título, conteúdo, tags e pastas"),
+    "tags" to ScreenHeader("Tags", "uma nota pode ter várias"),
+    "folders" to ScreenHeader("Pastas", "hierarquia livre"),
+    "favorites" to ScreenHeader("Favoritos", "acesso rápido às importantes"),
+    "archive" to ScreenHeader("Arquivados", "fora da visão principal"),
+    "settings" to ScreenHeader("Ajustes", "captura por voz, widget e permissões"),
+    "onboarding" to ScreenHeader("Sobreposição", "permissão necessária uma única vez")
+)
+
+private data class MenuEntry(val route: String, val label: String, val icon: ImageVector)
+private val MENU_ENTRIES = listOf(
+    MenuEntry("favorites", "Favoritos", Icons.Filled.Star),
+    MenuEntry("archive", "Arquivados", Icons.Filled.Folder),
+    MenuEntry("settings", "Ajustes", Icons.Filled.Settings)
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -72,6 +127,9 @@ fun QuickNotesNavHost(
     val factory = ViewModelFactory(container)
     val currentEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentEntry?.destination?.route
+    val isEditor = currentRoute?.startsWith("editor") == true
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     // Inbox is always the root of the back stack; a widget/overlay deep link opens on top of
     // it, so back (and save) from a deep-linked Editor always land somewhere sensible instead
@@ -98,90 +156,189 @@ fun QuickNotesNavHost(
         }
     }
 
-    Scaffold(
-        topBar = {
-            var menuOpen by remember { mutableStateOf(false) }
-            TopAppBar(
-                title = { Text("Quick Notes") },
-                actions = {
-                    IconButton(
-                        onClick = { menuOpen = true },
-                        modifier = Modifier.testTag("nav_menu_button")
+    var menuOpen by remember { mutableStateOf(false) }
+    var voiceSheetOpen by remember { mutableStateOf(false) }
+    val voiceBehavior by container.settingsRepository.voiceCaptureBehavior
+        .collectAsState(initial = VoiceCaptureBehavior.REVIEW_BEFORE_SAVE)
+
+    CompositionLocalProvider(LocalSnackbarHostState provides snackbarHostState) {
+        Scaffold(
+            containerColor = Nocturne.Background,
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            topBar = {
+                if (!isEditor) {
+                    val header = HEADERS[currentRoute] ?: ScreenHeader("Quick Notes", "")
+                    Row(
+                        Modifier.fillMaxWidth().padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = "Menu")
+                        Column(Modifier.weight(1f)) {
+                            Text(header.title, color = Nocturne.TextPrimary, fontSize = 21.sp, fontWeight = FontWeight.Medium)
+                            Text(header.subtitle, color = Nocturne.TextMuted, fontSize = 11.5.sp, modifier = Modifier.padding(top = 2.dp))
+                        }
+                        HeaderIconButton(Icons.Filled.Search, "Buscar", onClick = { navController.navigate("search") { launchSingleTop = true } })
+                        HeaderIconButton(
+                            Icons.Filled.MoreVert, "Menu",
+                            modifier = Modifier.testTag("nav_menu_button"),
+                            onClick = { menuOpen = true }
+                        )
                     }
-                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        MENU_DESTINATIONS.forEach { (route, label) ->
-                            DropdownMenuItem(
-                                text = { Text(label) },
-                                onClick = {
-                                    menuOpen = false
-                                    navController.navigate(route) { launchSingleTop = true }
+                }
+            },
+            bottomBar = {
+                if (!isEditor) {
+                    BottomBar(
+                        currentRoute = currentRoute,
+                        onTabClick = { route -> navController.navigate(route) { launchSingleTop = true } },
+                        onNewNote = { navController.navigate("editor?noteId=0") },
+                        onHoldVoice = { voiceSheetOpen = true }
+                    )
+                }
+            }
+        ) { padding ->
+            Box(Modifier.padding(padding)) {
+                NavHost(
+                    navController = navController,
+                    startDestination = "inbox",
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    composable("inbox") {
+                        val vm: InboxViewModel = viewModel(factory = factory)
+                        InboxScreen(vm, onNoteClick = { id -> navController.navigate("editor?noteId=$id") })
+                    }
+                    composable(
+                        EDITOR_ROUTE,
+                        arguments = listOf(
+                            navArgument("noteId") { type = NavType.LongType; defaultValue = 0L },
+                            navArgument("prefillContent") { type = NavType.StringType; nullable = true; defaultValue = null }
+                        )
+                    ) { backStackEntry ->
+                        val noteId = backStackEntry.arguments?.getLong("noteId")?.takeIf { it != 0L }
+                        val prefill = backStackEntry.arguments?.getString("prefillContent")
+                        val vm: EditorViewModel = viewModel(factory = editorViewModelFactory(container, noteId, prefill))
+                        // Inbox is always underneath (see the deep-link effect above), so this
+                        // never leaves the user staring at an empty NavHost.
+                        EditorScreen(vm, onSaved = { navController.popBackStack() })
+                    }
+                    composable("search") {
+                        val vm: SearchViewModel = viewModel(factory = factory)
+                        SearchScreen(vm)
+                    }
+                    composable("tags") {
+                        val vm: TagsViewModel = viewModel(factory = factory)
+                        TagsScreen(vm)
+                    }
+                    composable("folders") {
+                        val vm: FoldersViewModel = viewModel(factory = factory)
+                        FoldersScreen(vm)
+                    }
+                    composable("favorites") {
+                        val vm: FavoritesViewModel = viewModel(factory = factory)
+                        FavoritesScreen(vm, onNoteClick = { id -> navController.navigate("editor?noteId=$id") })
+                    }
+                    composable("archive") {
+                        val vm: ArchiveViewModel = viewModel(factory = factory)
+                        ArchiveScreen(vm, onNoteClick = { id -> navController.navigate("editor?noteId=$id") })
+                    }
+                    composable("settings") {
+                        val vm: SettingsViewModel = viewModel(factory = factory)
+                        SettingsScreen(vm, onOpenOnboarding = { navController.navigate("onboarding") { launchSingleTop = true } })
+                    }
+                    composable("onboarding") {
+                        val context = LocalContext.current
+                        com.quicknotes.app.ui.onboarding.OnboardingScreen(
+                            onRequestPermission = {
+                                context.startActivity(com.quicknotes.app.overlay.OverlayPermission.requestIntent(context))
+                            },
+                            onSkip = { navController.popBackStack() }
+                        )
+                    }
+                }
+
+                if (menuOpen) {
+                    ModalBottomSheet(onDismissRequest = { menuOpen = false }, containerColor = Nocturne.Surface) {
+                        Column(Modifier.padding(bottom = 18.dp)) {
+                            MENU_ENTRIES.forEach { entry ->
+                                Row(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 8.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable {
+                                            menuOpen = false
+                                            navController.navigate(entry.route) { launchSingleTop = true }
+                                        }
+                                        .padding(horizontal = 8.dp, vertical = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                ) {
+                                    Icon(entry.icon, contentDescription = null, tint = Nocturne.AccentText)
+                                    Text(entry.label, color = Nocturne.TextPrimary, fontSize = 14.5.sp, modifier = Modifier.weight(1f))
                                 }
-                            )
+                            }
                         }
                     }
                 }
-            )
-        },
-        floatingActionButton = {
-            if (currentRoute == "inbox") {
-                FloatingActionButton(
-                    onClick = { navController.navigate("editor?noteId=0") },
-                    modifier = Modifier.testTag("new_note_fab")
-                ) {
-                    Icon(Icons.Filled.Add, contentDescription = "Nova nota")
+
+                if (voiceSheetOpen) {
+                    VoiceCaptureSheet(
+                        behavior = voiceBehavior,
+                        onSave = { text ->
+                            voiceSheetOpen = false
+                            scope.launch {
+                                container.createNoteUseCase(title = text.take(60), content = text, captureSource = CaptureSource.APP)
+                                snackbarHostState.showSnackbar("Nota salva na Inbox")
+                            }
+                        },
+                        onContinueEditing = { text ->
+                            voiceSheetOpen = false
+                            navController.navigate("editor?noteId=0&prefillContent=${Uri.encode(text)}")
+                        },
+                        onDismiss = { voiceSheetOpen = false }
+                    )
                 }
             }
         }
-    ) { padding ->
-        NavHost(
-            navController = navController,
-            startDestination = "inbox",
-            modifier = Modifier.padding(padding)
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun BottomBar(
+    currentRoute: String?,
+    onTabClick: (String) -> Unit,
+    onNewNote: () -> Unit,
+    onHoldVoice: () -> Unit
+) {
+    Box(Modifier.fillMaxWidth().height(74.dp).background(Nocturne.BottomBar)) {
+        Row(Modifier.fillMaxSize().padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            TABS.forEach { tab ->
+                val active = currentRoute == tab.route
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag(if (tab.route == "inbox") "tab_inbox" else "tab_${tab.route}")
+                        .clickable { onTabClick(tab.route) }
+                        .padding(vertical = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(tab.icon, contentDescription = tab.label, tint = if (active) Nocturne.AccentText else Nocturne.TextMuted, modifier = Modifier.size(21.dp))
+                    Text(tab.label, color = if (active) Nocturne.AccentText else Nocturne.TextMuted, fontSize = 10.5.sp, fontWeight = FontWeight.Medium)
+                }
+            }
+            Spacer(Modifier.width(76.dp))
+        }
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 22.dp)
+                .size(60.dp)
+                .background(Nocturne.Accent, RoundedCornerShape(20.dp))
+                .testTag("new_note_fab")
+                .combinedClickable(onClick = onNewNote, onLongClick = onHoldVoice),
+            contentAlignment = Alignment.Center
         ) {
-            composable("inbox") {
-                val vm: InboxViewModel = viewModel(factory = factory)
-                InboxScreen(vm, onNoteClick = { id -> navController.navigate("editor?noteId=$id") })
-            }
-            composable(
-                EDITOR_ROUTE,
-                arguments = listOf(
-                    navArgument("noteId") { type = NavType.LongType; defaultValue = 0L },
-                    navArgument("prefillContent") { type = NavType.StringType; nullable = true; defaultValue = null }
-                )
-            ) { backStackEntry ->
-                val noteId = backStackEntry.arguments?.getLong("noteId")?.takeIf { it != 0L }
-                val prefill = backStackEntry.arguments?.getString("prefillContent")
-                val vm: EditorViewModel = viewModel(factory = editorViewModelFactory(container, noteId, prefill))
-                // Inbox is always underneath (see the deep-link effect above), so this
-                // never leaves the user staring at an empty NavHost.
-                EditorScreen(vm, onSaved = { navController.popBackStack() })
-            }
-            composable("search") {
-                val vm: SearchViewModel = viewModel(factory = factory)
-                SearchScreen(vm)
-            }
-            composable("tags") {
-                val vm: TagsViewModel = viewModel(factory = factory)
-                TagsScreen(vm)
-            }
-            composable("folders") {
-                val vm: FoldersViewModel = viewModel(factory = factory)
-                FoldersScreen(vm)
-            }
-            composable("favorites") {
-                val vm: FavoritesViewModel = viewModel(factory = factory)
-                FavoritesScreen(vm)
-            }
-            composable("archive") {
-                val vm: ArchiveViewModel = viewModel(factory = factory)
-                ArchiveScreen(vm)
-            }
-            composable("settings") {
-                val vm: SettingsViewModel = viewModel(factory = factory)
-                SettingsScreen(vm)
-            }
+            Icon(Icons.Filled.Add, contentDescription = "Nova nota", tint = Nocturne.OnAccent, modifier = Modifier.size(26.dp))
         }
     }
 }

@@ -185,16 +185,16 @@ O usuário nunca escolhe pasta, tag ou categoria no momento da captura rápida
 
 ## MVP — checklist
 
-- [ ] Criar notas (app e widget)
-- [ ] Editar notas
-- [ ] Excluir notas
-- [ ] Inbox
-- [ ] Busca
-- [ ] Favoritos
+- [x] Criar notas (app e widget)
+- [x] Editar notas
+- [x] Excluir notas
+- [x] Inbox
+- [x] Busca
+- [x] Favoritos
 - [ ] Arquivamento
-- [ ] Tags
+- [x] Tags
 - [ ] Pastas
-- [ ] Widget de captura por texto
-- [ ] Widget de captura por voz
-- [ ] Widget: atalho Inbox + notas recentes
+- [x] Widget de captura por texto
+- [x] Widget de captura por voz
+- [x] Widget: atalho Inbox + notas recentes
 - [ ] Persistência local com Room

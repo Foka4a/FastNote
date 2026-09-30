@@ -3,11 +3,17 @@ package com.quicknotes.app.ui.editor
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.quicknotes.app.domain.model.CaptureSource
+import com.quicknotes.app.domain.model.Folder
 import com.quicknotes.app.domain.model.Note
+import com.quicknotes.app.domain.model.Tag
+import com.quicknotes.app.domain.repository.FolderRepository
 import com.quicknotes.app.domain.repository.NoteRepository
+import com.quicknotes.app.domain.repository.TagRepository
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 data class EditorUiState(
@@ -19,11 +25,14 @@ data class EditorUiState(
     val favorite: Boolean = false,
     val archived: Boolean = false,
     val inbox: Boolean = true,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val captureSource: CaptureSource = CaptureSource.APP
 )
 
 class EditorViewModel(
     private val noteRepository: NoteRepository,
+    tagRepository: TagRepository,
+    folderRepository: FolderRepository,
     private val noteId: Long?,
     prefillContent: String? = null
 ) : ViewModel() {
@@ -34,6 +43,11 @@ class EditorViewModel(
     )
     val uiState: StateFlow<EditorUiState> = _uiState.asStateFlow()
 
+    val allTags: StateFlow<List<Tag>> = tagRepository.observeTags()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val allFolders: StateFlow<List<Folder>> = folderRepository.observeFolders()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     init {
         if (noteId != null) {
             viewModelScope.launch {
@@ -42,7 +56,7 @@ class EditorViewModel(
                         id = note.id, title = note.title, content = note.content,
                         folderId = note.folderId, tagIds = note.tagIds,
                         favorite = note.favorite, archived = note.archived, inbox = note.inbox,
-                        createdAt = note.createdAt
+                        createdAt = note.createdAt, captureSource = note.captureSource
                     )
                 }
             }
@@ -51,11 +65,18 @@ class EditorViewModel(
 
     fun updateTitle(title: String) { _uiState.value = _uiState.value.copy(title = title) }
     fun updateContent(content: String) { _uiState.value = _uiState.value.copy(content = content) }
-    fun updateFolder(folderId: Long?) { _uiState.value = _uiState.value.copy(folderId = folderId) }
-    fun updateTags(tagIds: List<Long>) { _uiState.value = _uiState.value.copy(tagIds = tagIds) }
+    fun pickFolder(folderId: Long?) { _uiState.value = _uiState.value.copy(folderId = folderId) }
+    fun addTag(tagId: Long) { _uiState.value = _uiState.value.copy(tagIds = _uiState.value.tagIds + tagId) }
+    fun removeTag(tagId: Long) { _uiState.value = _uiState.value.copy(tagIds = _uiState.value.tagIds - tagId) }
     fun toggleFavorite() { _uiState.value = _uiState.value.copy(favorite = !_uiState.value.favorite) }
-    fun toggleArchived() { _uiState.value = _uiState.value.copy(archived = !_uiState.value.archived) }
+    fun toggleArchived() { _uiState.value = _uiState.value.copy(archived = !_uiState.value.archived, inbox = _uiState.value.archived) }
     fun toggleInbox() { _uiState.value = _uiState.value.copy(inbox = !_uiState.value.inbox) }
+
+    fun delete(onDeleted: () -> Unit) {
+        val id = _uiState.value.id
+        if (id == 0L) { onDeleted(); return }
+        viewModelScope.launch { noteRepository.deleteNote(id); onDeleted() }
+    }
 
     fun save(onSaved: () -> Unit) {
         viewModelScope.launch {
@@ -66,7 +87,8 @@ class EditorViewModel(
                     id = state.id, title = state.title, content = state.content,
                     createdAt = state.createdAt, updatedAt = now, folderId = state.folderId,
                     favorite = state.favorite, archived = state.archived, inbox = state.inbox,
-                    captureSource = CaptureSource.APP, tagIds = state.tagIds
+                    captureSource = if (state.id == 0L) CaptureSource.APP else state.captureSource,
+                    tagIds = state.tagIds
                 )
             )
             onSaved()

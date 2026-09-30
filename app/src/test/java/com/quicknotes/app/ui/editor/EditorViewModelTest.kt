@@ -1,6 +1,8 @@
 package com.quicknotes.app.ui.editor
 
+import com.quicknotes.app.domain.FakeFolderRepository
 import com.quicknotes.app.domain.FakeNoteRepository
+import com.quicknotes.app.domain.FakeTagRepository
 import com.quicknotes.app.domain.model.CaptureSource
 import com.quicknotes.app.domain.model.Note
 import kotlinx.coroutines.Dispatchers
@@ -14,6 +16,12 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+
+private fun editorViewModel(
+    repository: FakeNoteRepository,
+    noteId: Long?,
+    prefillContent: String? = null
+) = EditorViewModel(repository, FakeTagRepository(), FakeFolderRepository(), noteId, prefillContent)
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class EditorViewModelTest {
@@ -30,7 +38,7 @@ class EditorViewModelTest {
     @Test
     fun savingNewNoteCreatesItInRepository() = runTest {
         val repository = FakeNoteRepository()
-        val viewModel = EditorViewModel(repository, noteId = null)
+        val viewModel = editorViewModel(repository, noteId = null)
 
         viewModel.updateTitle("Nova nota")
         viewModel.updateContent("conteúdo")
@@ -49,7 +57,7 @@ class EditorViewModelTest {
             Note(title = "Original", content = "", createdAt = 1, updatedAt = 1, folderId = null,
                 favorite = false, archived = false, inbox = true, captureSource = CaptureSource.APP)
         )
-        val viewModel = EditorViewModel(repository, noteId = id)
+        val viewModel = editorViewModel(repository, noteId = id)
         viewModel.uiState.value // trigger load in real impl via init block
 
         viewModel.updateTitle("Editado")
@@ -66,7 +74,7 @@ class EditorViewModelTest {
             Note(title = "Original", content = "", createdAt = 1000, updatedAt = 1000, folderId = null,
                 favorite = false, archived = false, inbox = true, captureSource = CaptureSource.APP)
         )
-        val viewModel = EditorViewModel(repository, noteId = id)
+        val viewModel = editorViewModel(repository, noteId = id)
         viewModel.uiState.value // trigger load in real impl via init block
 
         viewModel.updateTitle("Editado")
@@ -79,7 +87,7 @@ class EditorViewModelTest {
 
     @Test
     fun newNoteStartsWithPrefilledContentFromVoiceCapture() = runTest {
-        val viewModel = EditorViewModel(FakeNoteRepository(), noteId = null, prefillContent = "ditado por voz")
+        val viewModel = editorViewModel(FakeNoteRepository(), noteId = null, prefillContent = "ditado por voz")
 
         assertEquals("ditado por voz", viewModel.uiState.value.content)
     }
@@ -92,14 +100,14 @@ class EditorViewModelTest {
                 favorite = false, archived = false, inbox = true, captureSource = CaptureSource.APP)
         )
 
-        val viewModel = EditorViewModel(repository, noteId = id, prefillContent = "não deve aparecer")
+        val viewModel = editorViewModel(repository, noteId = id, prefillContent = "não deve aparecer")
 
         assertEquals("conteúdo salvo", viewModel.uiState.value.content)
     }
 
     @Test
     fun toggleFavoriteFlipsState() = runTest {
-        val viewModel = EditorViewModel(FakeNoteRepository(), noteId = null)
+        val viewModel = editorViewModel(FakeNoteRepository(), noteId = null)
         assertTrue(!viewModel.uiState.value.favorite)
         viewModel.toggleFavorite()
         assertTrue(viewModel.uiState.value.favorite)

@@ -1,6 +1,7 @@
 package com.quicknotes.app.ui.inbox
 
 import com.quicknotes.app.domain.FakeNoteRepository
+import com.quicknotes.app.domain.FakeTagRepository
 import com.quicknotes.app.domain.model.CaptureSource
 import com.quicknotes.app.domain.model.Note
 import kotlinx.coroutines.Dispatchers
@@ -37,7 +38,7 @@ class InboxViewModelTest {
             Note(title = "A", content = "", createdAt = 1, updatedAt = 1, folderId = null,
                 favorite = false, archived = false, inbox = true, captureSource = CaptureSource.APP)
         )
-        val viewModel = InboxViewModel(repository)
+        val viewModel = InboxViewModel(repository, FakeTagRepository())
         // Subscribe to the StateFlow to trigger collection
         async { viewModel.notes.first() }.await()
 
@@ -51,7 +52,7 @@ class InboxViewModelTest {
             Note(title = "A", content = "", createdAt = 1, updatedAt = 1, folderId = null,
                 favorite = false, archived = false, inbox = true, captureSource = CaptureSource.APP)
         )
-        val viewModel = InboxViewModel(repository)
+        val viewModel = InboxViewModel(repository, FakeTagRepository())
         // Subscribe to the StateFlow to trigger collection
         async { viewModel.notes.first() }.await()
 

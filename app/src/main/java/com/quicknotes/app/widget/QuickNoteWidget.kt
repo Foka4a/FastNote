@@ -78,15 +78,15 @@ class OpenNoteAction : ActionCallback {
     }
 }
 
-// Palette from the "Indigo Focus" Stitch design (dark theme, fixed — not adaptive to system light/dark).
-private val WidgetBackground = ColorProvider(Color(0xFF1E293B))
-private val PanelBackground = ColorProvider(Color(0xFF060E20))
-private val PillBackground = ColorProvider(Color(0xFF2D3449))
-private val CardBackground = ColorProvider(Color(0xFF1E293B))
-private val Primary = ColorProvider(Color(0xFFC3C0FF))
-private val PrimaryContainer = ColorProvider(Color(0xFF4F46E5))
-private val OnPrimaryContainer = ColorProvider(Color(0xFFDAD7FF))
-private val OnSurfaceVariant = ColorProvider(Color(0xFF94A3B8))
+// "Nocturne" palette from the QuickNotes design (dark theme, fixed — not adaptive to system light/dark).
+private val WidgetBackground = ColorProvider(Color(0xFF232532))
+private val PanelBackground = ColorProvider(Color(0xFF1A1C29))
+private val PillBackground = ColorProvider(Color(0xFF1A1C29))
+private val CardBackground = ColorProvider(Color(0xFF232532))
+private val Primary = ColorProvider(Color(0xFFB9AFE8))
+private val PrimaryContainer = ColorProvider(Color(0xFF9184D9))
+private val OnPrimaryContainer = ColorProvider(Color(0xFF161826))
+private val OnSurfaceVariant = ColorProvider(Color(0xFFE9E9ED).copy(alpha = .5f))
 
 private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
 
