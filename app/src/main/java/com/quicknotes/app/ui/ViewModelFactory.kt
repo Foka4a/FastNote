@@ -6,6 +6,7 @@ import com.quicknotes.app.AppContainer
 import com.quicknotes.app.ui.archive.ArchiveViewModel
 import com.quicknotes.app.ui.editor.EditorViewModel
 import com.quicknotes.app.ui.favorites.FavoritesViewModel
+import com.quicknotes.app.ui.folders.FolderNotesViewModel
 import com.quicknotes.app.ui.folders.FoldersViewModel
 import com.quicknotes.app.ui.inbox.InboxViewModel
 import com.quicknotes.app.ui.search.SearchViewModel
@@ -35,4 +36,11 @@ fun editorViewModelFactory(
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
             EditorViewModel(container.noteRepository, container.tagRepository, container.folderRepository, noteId, prefillContent) as T
+    }
+
+fun folderNotesViewModelFactory(container: AppContainer, folderId: Long): ViewModelProvider.Factory =
+    object : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T =
+            FolderNotesViewModel(container.noteRepository, folderId) as T
     }

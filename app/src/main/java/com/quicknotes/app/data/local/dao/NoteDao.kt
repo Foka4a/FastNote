@@ -19,16 +19,21 @@ interface NoteDao {
     @Query("SELECT * FROM notes WHERE id = :id")
     suspend fun getById(id: Long): NoteEntity?
 
-    @Query("SELECT * FROM notes WHERE inbox = 1 ORDER BY createdAt DESC")
+    // archived = 0: archiving from the Inbox only flips `archived`, so the note must drop out here.
+    @Query("SELECT * FROM notes WHERE inbox = 1 AND archived = 0 ORDER BY createdAt DESC")
     fun observeInbox(): Flow<List<NoteEntity>>
 
-    @Query("SELECT * FROM notes WHERE favorite = 1 ORDER BY updatedAt DESC")
+    @Query("SELECT * FROM notes WHERE favorite = 1 AND archived = 0 ORDER BY updatedAt DESC")
     fun observeFavorites(): Flow<List<NoteEntity>>
 
     @Query("SELECT * FROM notes WHERE archived = 1 ORDER BY updatedAt DESC")
     fun observeArchived(): Flow<List<NoteEntity>>
 
-    @Query("SELECT * FROM notes ORDER BY createdAt DESC LIMIT :limit")
+    @Query("SELECT * FROM notes WHERE folderId = :folderId AND archived = 0 ORDER BY updatedAt DESC")
+    fun observeByFolder(folderId: Long): Flow<List<NoteEntity>>
+
+    // search() deliberately still includes archived notes (Keep-style).
+    @Query("SELECT * FROM notes WHERE archived = 0 ORDER BY createdAt DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<NoteEntity>>
 
     @Query(
@@ -49,7 +54,8 @@ interface NoteDao {
     @Query("UPDATE notes SET favorite = :favorite WHERE id = :id")
     suspend fun setFavorite(id: Long, favorite: Boolean)
 
-    @Query("UPDATE notes SET archived = :archived WHERE id = :id")
+    // Unarchiving returns the note to the Inbox (same as the editor's toggle); archiving keeps `inbox` as is.
+    @Query("UPDATE notes SET archived = :archived, inbox = CASE WHEN :archived THEN inbox ELSE 1 END WHERE id = :id")
     suspend fun setArchived(id: Long, archived: Boolean)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

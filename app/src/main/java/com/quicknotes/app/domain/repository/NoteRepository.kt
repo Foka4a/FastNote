@@ -7,6 +7,7 @@ interface NoteRepository {
     fun observeInbox(): Flow<List<Note>>
     fun observeFavorites(): Flow<List<Note>>
     fun observeArchived(): Flow<List<Note>>
+    fun observeByFolder(folderId: Long): Flow<List<Note>>
     fun observeRecent(limit: Int): Flow<List<Note>>
     suspend fun getNote(id: Long): Note?
     suspend fun search(query: String): List<Note>

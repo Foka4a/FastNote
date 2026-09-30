@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Mic
@@ -71,9 +72,12 @@ import com.quicknotes.app.ui.components.LocalSnackbarHostState
 import com.quicknotes.app.ui.editor.EditorScreen
 import com.quicknotes.app.ui.editor.EditorViewModel
 import com.quicknotes.app.ui.editorViewModelFactory
+import com.quicknotes.app.ui.folderNotesViewModelFactory
 import com.quicknotes.app.ui.favorites.FavoritesScreen
 import com.quicknotes.app.ui.favorites.FavoritesViewModel
+import com.quicknotes.app.ui.folders.FolderNotesScreen
 import com.quicknotes.app.ui.folders.FoldersScreen
+import com.quicknotes.app.ui.folders.FolderNotesViewModel
 import com.quicknotes.app.ui.folders.FoldersViewModel
 import com.quicknotes.app.ui.inbox.InboxScreen
 import com.quicknotes.app.ui.inbox.InboxViewModel
@@ -87,6 +91,7 @@ import com.quicknotes.app.ui.theme.Nocturne
 import kotlinx.coroutines.launch
 
 private const val EDITOR_ROUTE = "editor?noteId={noteId}&prefillContent={prefillContent}"
+private const val FOLDER_ROUTE = "folder/{folderId}"
 
 private data class TabDef(val route: String, val label: String, val icon: ImageVector)
 private val TABS = listOf(
@@ -111,7 +116,7 @@ private val HEADERS = mapOf(
 private data class MenuEntry(val route: String, val label: String, val icon: ImageVector)
 private val MENU_ENTRIES = listOf(
     MenuEntry("favorites", "Favoritos", Icons.Filled.Star),
-    MenuEntry("archive", "Arquivados", Icons.Filled.Folder),
+    MenuEntry("archive", "Arquivados", Icons.Filled.Archive),
     MenuEntry("settings", "Ajustes", Icons.Filled.Settings)
 )
 
@@ -156,6 +161,9 @@ fun QuickNotesNavHost(
         }
     }
 
+    // Folder route header shows the folder's name; remember so the flow isn't recreated per recomposition.
+    val folders by remember { container.folderRepository.observeFolders() }.collectAsState(initial = emptyList())
+
     var menuOpen by remember { mutableStateOf(false) }
     var voiceSheetOpen by remember { mutableStateOf(false) }
     val voiceBehavior by container.settingsRepository.voiceCaptureBehavior
@@ -167,7 +175,10 @@ fun QuickNotesNavHost(
             snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
                 if (!isEditor) {
-                    val header = HEADERS[currentRoute] ?: ScreenHeader("Quick Notes", "")
+                    val header = if (currentRoute == FOLDER_ROUTE) {
+                        val folderId = currentEntry?.arguments?.getLong("folderId")
+                        ScreenHeader(folders.find { it.id == folderId }?.name ?: "Pasta", "notas da pasta")
+                    } else HEADERS[currentRoute] ?: ScreenHeader("Quick Notes", "")
                     Row(
                         Modifier.fillMaxWidth().padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -230,7 +241,12 @@ fun QuickNotesNavHost(
                     }
                     composable("folders") {
                         val vm: FoldersViewModel = viewModel(factory = factory)
-                        FoldersScreen(vm)
+                        FoldersScreen(vm, onFolderClick = { id -> navController.navigate("folder/$id") })
+                    }
+                    composable(FOLDER_ROUTE, arguments = listOf(navArgument("folderId") { type = NavType.LongType })) { backStackEntry ->
+                        val folderId = backStackEntry.arguments!!.getLong("folderId")
+                        val vm: FolderNotesViewModel = viewModel(factory = folderNotesViewModelFactory(container, folderId))
+                        FolderNotesScreen(vm, onNoteClick = { id -> navController.navigate("editor?noteId=$id") })
                     }
                     composable("favorites") {
                         val vm: FavoritesViewModel = viewModel(factory = factory)

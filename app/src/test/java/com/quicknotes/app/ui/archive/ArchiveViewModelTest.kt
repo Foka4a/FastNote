@@ -46,4 +46,18 @@ class ArchiveViewModelTest {
 
         assertTrue(!repository.getNote(id)!!.archived)
     }
+
+    @Test
+    fun unarchiveReturnsEditorArchivedNoteToInbox() = runTest {
+        val repository = FakeNoteRepository()
+        // Archiving in the editor also clears `inbox`.
+        val id = repository.saveNote(
+            Note(title = "A", content = "", createdAt = 1, updatedAt = 1, folderId = null,
+                favorite = false, archived = true, inbox = false, captureSource = CaptureSource.APP)
+        )
+
+        ArchiveViewModel(repository).unarchive(id)
+
+        assertTrue(repository.getNote(id)!!.inbox)
+    }
 }

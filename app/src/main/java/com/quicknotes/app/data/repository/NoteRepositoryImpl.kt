@@ -19,6 +19,7 @@ class NoteRepositoryImpl(
     override fun observeInbox(): Flow<List<Note>> = noteDao.observeInbox().map { list -> list.map { it.toDomainWithTags() } }
     override fun observeFavorites(): Flow<List<Note>> = noteDao.observeFavorites().map { list -> list.map { it.toDomainWithTags() } }
     override fun observeArchived(): Flow<List<Note>> = noteDao.observeArchived().map { list -> list.map { it.toDomainWithTags() } }
+    override fun observeByFolder(folderId: Long): Flow<List<Note>> = noteDao.observeByFolder(folderId).map { list -> list.map { it.toDomainWithTags() } }
     override fun observeRecent(limit: Int): Flow<List<Note>> = noteDao.observeRecent(limit).map { list -> list.map { it.toDomainWithTags() } }
 
     override suspend fun getNote(id: Long): Note? = noteDao.getById(id)?.toDomainWithTags()

@@ -55,4 +55,41 @@ class NoteDaoTest {
         assertEquals(1, db.noteDao().search("Projetos").size)
         assertEquals(0, db.noteDao().search("inexistente").size)
     }
+
+    @Test
+    fun observeByFolderReturnsOnlyActiveNotesOfThatFolderNewestFirst() = runBlocking {
+        val folderId = db.folderDao().insert(com.quicknotes.app.data.local.entity.FolderEntity(name = "Pasta", parentId = null))
+        db.noteDao().insert(note("velha").copy(folderId = folderId, updatedAt = 1L))
+        db.noteDao().insert(note("nova").copy(folderId = folderId, updatedAt = 2L))
+        db.noteDao().insert(note("arquivada").copy(folderId = folderId, archived = true))
+        db.noteDao().insert(note("solta"))
+
+        assertEquals(listOf("nova", "velha"), db.noteDao().observeByFolder(folderId).first().map { it.title })
+    }
+
+    @Test
+    fun archivingRemovesNoteFromInbox() = runBlocking {
+        val id = db.noteDao().insert(note("A"))
+        db.noteDao().setArchived(id, true)
+
+        assertEquals(0, db.noteDao().observeInbox().first().size)
+        assertEquals(1, db.noteDao().observeArchived().first().size)
+    }
+
+    @Test
+    fun unarchiveReturnsNoteToInbox() = runBlocking {
+        val id = db.noteDao().insert(note("A", inbox = false).copy(archived = true))
+        db.noteDao().setArchived(id, false)
+
+        assertEquals(listOf("A"), db.noteDao().observeInbox().first().map { it.title })
+    }
+
+    @Test
+    fun archivedNotesHiddenFromRecentAndFavoritesButStillSearchable() = runBlocking {
+        db.noteDao().insert(note("Oculta").copy(archived = true, favorite = true))
+
+        assertEquals(0, db.noteDao().observeRecent(10).first().size)
+        assertEquals(0, db.noteDao().observeFavorites().first().size)
+        assertEquals(1, db.noteDao().search("Oculta").size)
+    }
 }

@@ -36,7 +36,7 @@ import com.quicknotes.app.ui.components.EmptyHint
 import com.quicknotes.app.ui.theme.Nocturne
 
 @Composable
-fun FoldersScreen(viewModel: FoldersViewModel) {
+fun FoldersScreen(viewModel: FoldersViewModel, onFolderClick: (Long) -> Unit = {}) {
     val folders by viewModel.folders.collectAsState()
     var newFolder by remember { mutableStateOf("") }
 
@@ -82,7 +82,11 @@ fun FoldersScreen(viewModel: FoldersViewModel) {
         LazyColumn(Modifier.fillMaxWidth().padding(top = 8.dp)) {
             items(folders, key = { it.id }) { folder ->
                 Row(
-                    Modifier.fillMaxWidth().padding(vertical = 13.dp),
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { onFolderClick(folder.id) }
+                        .testTag("folder_row_${folder.id}")
+                        .padding(vertical = 13.dp),
                     horizontalArrangement = Arrangement.spacedBy(11.dp),
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
                 ) {
