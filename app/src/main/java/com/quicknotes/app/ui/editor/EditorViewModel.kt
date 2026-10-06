@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.quicknotes.app.domain.model.CaptureSource
 import com.quicknotes.app.domain.model.Folder
 import com.quicknotes.app.domain.model.Note
+import com.quicknotes.app.domain.model.NoteLink
+import com.quicknotes.app.domain.model.NoteRef
 import com.quicknotes.app.domain.model.Tag
 import com.quicknotes.app.domain.repository.FolderRepository
 import com.quicknotes.app.domain.repository.NoteRepository
@@ -13,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -34,11 +37,12 @@ class EditorViewModel(
     tagRepository: TagRepository,
     folderRepository: FolderRepository,
     private val noteId: Long?,
-    prefillContent: String? = null
+    prefillContent: String? = null,
+    prefillTitle: String? = null
 ) : ViewModel() {
-    // Only meaningful for a brand new note (voice capture handed over its transcription).
+    // Prefills only apply to a brand new note (voice transcription, or a ghost link being created).
     private val _uiState = MutableStateFlow(
-        if (noteId == null && !prefillContent.isNullOrEmpty()) EditorUiState(content = prefillContent)
+        if (noteId == null) EditorUiState(title = prefillTitle.orEmpty(), content = prefillContent.orEmpty())
         else EditorUiState()
     )
     val uiState: StateFlow<EditorUiState> = _uiState.asStateFlow()
@@ -47,6 +51,12 @@ class EditorViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val allFolders: StateFlow<List<Folder>> = folderRepository.observeFolders()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val outgoingLinks: StateFlow<List<NoteLink>> =
+        (if (noteId == null) flowOf(emptyList()) else noteRepository.observeOutgoingLinks(noteId))
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val backlinks: StateFlow<List<NoteRef>> =
+        (if (noteId == null) flowOf(emptyList()) else noteRepository.observeBacklinks(noteId))
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
         if (noteId != null) {

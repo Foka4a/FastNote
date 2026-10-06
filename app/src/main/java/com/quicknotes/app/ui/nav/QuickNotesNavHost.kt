@@ -90,7 +90,7 @@ import com.quicknotes.app.ui.tags.TagsViewModel
 import com.quicknotes.app.ui.theme.Nocturne
 import kotlinx.coroutines.launch
 
-private const val EDITOR_ROUTE = "editor?noteId={noteId}&prefillContent={prefillContent}"
+private const val EDITOR_ROUTE = "editor?noteId={noteId}&prefillContent={prefillContent}&prefillTitle={prefillTitle}"
 private const val FOLDER_ROUTE = "folder/{folderId}"
 
 private data class TabDef(val route: String, val label: String, val icon: ImageVector)
@@ -221,15 +221,23 @@ fun QuickNotesNavHost(
                         EDITOR_ROUTE,
                         arguments = listOf(
                             navArgument("noteId") { type = NavType.LongType; defaultValue = 0L },
-                            navArgument("prefillContent") { type = NavType.StringType; nullable = true; defaultValue = null }
+                            navArgument("prefillContent") { type = NavType.StringType; nullable = true; defaultValue = null },
+                            navArgument("prefillTitle") { type = NavType.StringType; nullable = true; defaultValue = null }
                         )
                     ) { backStackEntry ->
                         val noteId = backStackEntry.arguments?.getLong("noteId")?.takeIf { it != 0L }
                         val prefill = backStackEntry.arguments?.getString("prefillContent")
-                        val vm: EditorViewModel = viewModel(factory = editorViewModelFactory(container, noteId, prefill))
+                        val prefillTitle = backStackEntry.arguments?.getString("prefillTitle")
+                        val vm: EditorViewModel = viewModel(factory = editorViewModelFactory(container, noteId, prefill, prefillTitle))
                         // Inbox is always underneath (see the deep-link effect above), so this
                         // never leaves the user staring at an empty NavHost.
-                        EditorScreen(vm, onSaved = { navController.popBackStack() })
+                        // Opening a linked note pushes a new editor, so back returns to the note being read.
+                        EditorScreen(
+                            vm,
+                            onSaved = { navController.popBackStack() },
+                            onOpenNote = { id -> navController.navigate("editor?noteId=$id") },
+                            onCreateNote = { title -> navController.navigate("editor?noteId=0&prefillTitle=${Uri.encode(title)}") }
+                        )
                     }
                     composable("search") {
                         val vm: SearchViewModel = viewModel(factory = factory)

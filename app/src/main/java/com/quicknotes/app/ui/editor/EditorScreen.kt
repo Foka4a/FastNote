@@ -45,10 +45,18 @@ import com.quicknotes.app.ui.theme.Nocturne
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun EditorScreen(viewModel: EditorViewModel, onSaved: () -> Unit, onClose: () -> Unit = onSaved) {
+fun EditorScreen(
+    viewModel: EditorViewModel,
+    onSaved: () -> Unit,
+    onClose: () -> Unit = onSaved,
+    onOpenNote: (Long) -> Unit = {},
+    onCreateNote: (String) -> Unit = {}
+) {
     val state by viewModel.uiState.collectAsState()
     val tags by viewModel.allTags.collectAsState()
     val folders by viewModel.allFolders.collectAsState()
+    val outgoing by viewModel.outgoingLinks.collectAsState()
+    val backlinks by viewModel.backlinks.collectAsState()
 
     Column(Modifier.fillMaxSize()) {
         Row(
@@ -117,6 +125,9 @@ fun EditorScreen(viewModel: EditorViewModel, onSaved: () -> Unit, onClose: () ->
                         FilledChip(folder.name, selected = state.folderId == folder.id, onClick = { viewModel.pickFolder(folder.id) })
                     }
                 }
+            }
+            item {
+                LinksSection(backlinks = backlinks, outgoing = outgoing, onOpenNote = onOpenNote, onCreateGhost = onCreateNote)
             }
             item {
                 Row(

@@ -30,12 +30,16 @@ class ViewModelFactory(private val container: AppContainer) : ViewModelProvider.
 fun editorViewModelFactory(
     container: AppContainer,
     noteId: Long?,
-    prefillContent: String? = null
+    prefillContent: String? = null,
+    prefillTitle: String? = null
 ): ViewModelProvider.Factory =
     object : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            EditorViewModel(container.noteRepository, container.tagRepository, container.folderRepository, noteId, prefillContent) as T
+            EditorViewModel(
+                container.noteRepository, container.tagRepository, container.folderRepository,
+                noteId, prefillContent, prefillTitle
+            ) as T
     }
 
 fun folderNotesViewModelFactory(container: AppContainer, folderId: Long): ViewModelProvider.Factory =
