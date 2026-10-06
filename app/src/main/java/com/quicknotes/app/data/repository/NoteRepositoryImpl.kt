@@ -2,18 +2,25 @@ package com.quicknotes.app.data.repository
 
 import androidx.room.withTransaction
 import com.quicknotes.app.data.local.dao.NoteDao
+import com.quicknotes.app.data.local.dao.NoteLinkDao
 import com.quicknotes.app.data.local.database.AppDatabase
 import com.quicknotes.app.data.local.entity.NoteEntity
 import com.quicknotes.app.data.local.entity.NoteTagEntity
 import com.quicknotes.app.domain.model.CaptureSource
 import com.quicknotes.app.domain.model.Note
+import com.quicknotes.app.domain.model.NoteGraph
+import com.quicknotes.app.domain.model.NoteLink
+import com.quicknotes.app.domain.model.NoteRef
+import com.quicknotes.app.domain.model.Tag
 import com.quicknotes.app.domain.repository.NoteRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
 class NoteRepositoryImpl(
     private val database: AppDatabase,
-    private val noteDao: NoteDao = database.noteDao()
+    private val noteDao: NoteDao = database.noteDao(),
+    private val linkDao: NoteLinkDao = database.noteLinkDao()
 ) : NoteRepository {
 
     override fun observeInbox(): Flow<List<Note>> = noteDao.observeInbox().map { list -> list.map { it.toDomainWithTags() } }
@@ -44,6 +51,12 @@ class NoteRepositoryImpl(
     override suspend fun deleteNote(id: Long) = noteDao.delete(id)
     override suspend fun setFavorite(id: Long, favorite: Boolean) = noteDao.setFavorite(id, favorite)
     override suspend fun setArchived(id: Long, archived: Boolean) = noteDao.setArchived(id, archived)
+
+    override fun observeOutgoingLinks(noteId: Long): Flow<List<NoteLink>> = linkDao.observeOutgoing(noteId)
+    override fun observeBacklinks(noteId: Long): Flow<List<NoteRef>> = linkDao.observeBacklinks(noteId)
+    override fun observeGraph(): Flow<NoteGraph> = combine(
+        linkDao.observeNoteRefs(), linkDao.observeAll(), database.tagDao().observeAll(), linkDao.observeNoteTags()
+    ) { notes, links, tags, noteTags -> NoteGraph(notes, links, tags.map { Tag(it.id, it.name) }, noteTags) }
 
     private suspend fun NoteEntity.toDomainWithTags(): Note = Note(
         id = id, title = title, content = content, createdAt = createdAt, updatedAt = updatedAt,

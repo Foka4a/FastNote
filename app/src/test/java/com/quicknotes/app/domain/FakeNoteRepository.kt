@@ -1,14 +1,47 @@
 package com.quicknotes.app.domain
 
+import com.quicknotes.app.domain.link.LinkParser
 import com.quicknotes.app.domain.model.Note
+import com.quicknotes.app.domain.model.NoteGraph
+import com.quicknotes.app.domain.model.NoteLink
+import com.quicknotes.app.domain.model.NoteRef
+import com.quicknotes.app.domain.model.NoteTagRef
+import com.quicknotes.app.domain.model.Tag
 import com.quicknotes.app.domain.repository.NoteRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
 class FakeNoteRepository : NoteRepository {
     private var nextId = 1L
     val notes = MutableStateFlow<List<Note>>(emptyList())
+    val tags = MutableStateFlow<List<Tag>>(emptyList())
+
+    // Derived from content on every emission, so deleting a target turns its links into ghosts.
+    private fun resolvedLinks(all: List<Note>): List<NoteLink> {
+        val titles = LinkParser.titleIndex(all.map { NoteRef(it.id, it.title) })
+        return all.sortedBy { it.id }.flatMap { note ->
+            LinkParser.extractLinks(note.content).map { NoteLink(note.id, it.index, titles[LinkParser.normalize(it.title)], it.title) }
+        }
+    }
+
+    override fun observeOutgoingLinks(noteId: Long): Flow<List<NoteLink>> =
+        notes.map { all -> resolvedLinks(all).filter { it.sourceId == noteId } }
+
+    override fun observeBacklinks(noteId: Long): Flow<List<NoteRef>> = notes.map { all ->
+        val sources = resolvedLinks(all).filter { it.targetId == noteId && it.sourceId != noteId }.map { it.sourceId }.toSet()
+        all.filter { it.id in sources }.sortedBy { it.id }.map { NoteRef(it.id, it.title) }
+    }
+
+    override fun observeGraph(): Flow<NoteGraph> = combine(notes, tags) { all, allTags ->
+        NoteGraph(
+            notes = all.map { NoteRef(it.id, it.title) },
+            links = resolvedLinks(all),
+            tags = allTags,
+            noteTags = all.flatMap { note -> note.tagIds.map { NoteTagRef(note.id, it) } }
+        )
+    }
 
     override fun observeInbox(): Flow<List<Note>> = notes
     override fun observeFavorites(): Flow<List<Note>> = notes
