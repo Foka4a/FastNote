@@ -147,4 +147,16 @@ class NoteRepositoryLinksTest {
         repository.deleteNote(src)
         assertTrue(links(src).isEmpty())
     }
+
+    @Test
+    fun savingDeletedNoteReinsertsItWithItsLinks() = runBlocking {
+        val alvo = repository.saveNote(note("Alvo"))
+        val fonte = repository.saveNote(note("Fonte", "[[Alvo]]"))
+        repository.deleteNote(fonte)
+
+        assertEquals(fonte, repository.saveNote(note("Fonte", "[[Alvo]]", id = fonte)))
+
+        assertEquals("Fonte", repository.getNote(fonte)!!.title)
+        assertEquals(listOf(NoteLinkEntity(fonte, 0, alvo, "Alvo")), links(fonte))
+    }
 }

@@ -44,7 +44,8 @@ class NoteRepositoryImpl(
             captureSource = note.captureSource.name
         )
         // @Update, never REPLACE: REPLACE deletes the row and CASCADE would wipe its links.
-        val id = if (note.id == 0L) noteDao.insert(entity) else { noteDao.update(entity); note.id }
+        // 0 rows updated = id no longer exists (undo of a delete): reinsert with the same id, else note_links FK fails.
+        val id = if (note.id == 0L || noteDao.update(entity) == 0) noteDao.insert(entity) else note.id
         noteDao.clearNoteTags(id)
         if (note.tagIds.isNotEmpty()) {
             noteDao.insertNoteTags(note.tagIds.map { NoteTagEntity(id, it) })
