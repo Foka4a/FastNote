@@ -222,6 +222,15 @@ Uma nota poderá referenciar outras notas relacionadas.
 
 Isso permite construir uma pequena rede de conhecimento ao longo do tempo.
 
+### Como funciona (fase 2)
+
+* Escreva `[[Título da nota]]` no conteúdo ou use o botão **Ligar nota** do editor. O match ignora maiúsculas/minúsculas e espaços nas pontas.
+* Um link para uma nota que ainda não existe vira **fantasma**; ao criar uma nota com esse título, o link é resolvido.
+* Renomear uma nota reescreve `[[Título Antigo]]` em todas as notas que apontam para ela. Excluir uma nota transforma os links recebidos em fantasmas; desfazer a exclusão reinsere a nota com o mesmo id e religa esses fantasmas.
+* O editor mostra a seção **Ligações** (backlinks e links de saída). Cada linha tem alvo de toque de pelo menos 48dp; fantasmas são anunciados como "nota fantasma" e tocar neles abre uma nota nova com o título preenchido.
+* A aba **Grafo** mostra notas, tags e fantasmas: arrastar o vazio move a vista, pinça dá zoom ancorado no centro da pinça, tocar numa tag filtra o grafo (tocar de novo limpa). Os nós não têm semântica individual: o TalkBack lê apenas "Grafo com N nós".
+* **Limite conhecido:** o grafo usa simulação O(n²) e fica lento acima de ~300 nós (notas + tags + fantasmas). Evolução prevista: Barnes-Hut.
+
 ---
 
 ## Favoritos
