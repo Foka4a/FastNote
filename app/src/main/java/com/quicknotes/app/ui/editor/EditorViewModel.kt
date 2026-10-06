@@ -1,0 +1,155 @@
+package com.quicknotes.app.ui.editor
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.quicknotes.app.domain.model.CaptureSource
+import com.quicknotes.app.domain.model.Folder
+import com.quicknotes.app.domain.model.Note
+import com.quicknotes.app.domain.model.NoteLink
+import com.quicknotes.app.domain.model.NoteRef
+import com.quicknotes.app.domain.model.Tag
+import com.quicknotes.app.domain.repository.FolderRepository
+import com.quicknotes.app.domain.repository.NoteRepository
+import com.quicknotes.app.domain.repository.TagRepository
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+data class EditorUiState(
+    val id: Long = 0,
+    val title: String = "",
+    val content: String = "",
+    val folderId: Long? = null,
+    val tagIds: List<Long> = emptyList(),
+    val favorite: Boolean = false,
+    val archived: Boolean = false,
+    val inbox: Boolean = true,
+    val createdAt: Long = System.currentTimeMillis(),
+    val captureSource: CaptureSource = CaptureSource.APP
+)
+
+/** Inserts `[[title]]` at [cursor], or on a new last line when there is no cursor. Returns text + new cursor. */
+internal fun insertLinkText(content: String, title: String, cursor: Int?): Pair<String, Int> {
+    val link = "[[${title.trim()}]]"
+    if (cursor == null) {
+        val prefix = if (content.isEmpty() || content.endsWith("\n")) content else content + "\n"
+        return (prefix + link).let { it to it.length }
+    }
+    val at = cursor.coerceIn(0, content.length)
+    return content.substring(0, at) + link + content.substring(at) to at + link.length
+}
+
+class EditorViewModel(
+    private val noteRepository: NoteRepository,
+    tagRepository: TagRepository,
+    folderRepository: FolderRepository,
+    private val noteId: Long?,
+    prefillContent: String? = null,
+    prefillTitle: String? = null
+) : ViewModel() {
+    // Prefills only apply to a brand new note (voice transcription, or a ghost link being created).
+    private val _uiState = MutableStateFlow(
+        if (noteId == null) EditorUiState(title = prefillTitle.orEmpty(), content = prefillContent.orEmpty())
+        else EditorUiState()
+    )
+    val uiState: StateFlow<EditorUiState> = _uiState.asStateFlow()
+
+    val allTags: StateFlow<List<Tag>> = tagRepository.observeTags()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val allFolders: StateFlow<List<Folder>> = folderRepository.observeFolders()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val outgoingLinks: StateFlow<List<NoteLink>> =
+        (if (noteId == null) flowOf(emptyList()) else noteRepository.observeOutgoingLinks(noteId))
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val backlinks: StateFlow<List<NoteRef>> =
+        (if (noteId == null) flowOf(emptyList()) else noteRepository.observeBacklinks(noteId))
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Title/content as last read from the DB: tells "user edited" apart from "DB changed underneath us".
+    private var baseline: Pair<String, String>? = null
+
+    init { refresh() }
+
+    /**
+     * (Re)loads the note. First call loads everything; later calls (screen resumed) only adopt
+     * title/content from the DB if the user hasn't edited them, so a rename propagated into this
+     * note by a stacked editor isn't undone on save. ponytail: concurrent edits stay last-write-wins.
+     */
+    fun refresh() {
+        if (noteId == null) return
+        viewModelScope.launch {
+            val note = noteRepository.getNote(noteId) ?: return@launch
+            val current = _uiState.value
+            if (baseline == null) {
+                _uiState.value = EditorUiState(
+                    id = note.id, title = note.title, content = note.content,
+                    folderId = note.folderId, tagIds = note.tagIds,
+                    favorite = note.favorite, archived = note.archived, inbox = note.inbox,
+                    createdAt = note.createdAt, captureSource = note.captureSource
+                )
+            } else if (baseline == current.title to current.content) {
+                _uiState.value = current.copy(title = note.title, content = note.content)
+            }
+            baseline = note.title to note.content
+        }
+    }
+
+    fun updateTitle(title: String) { _uiState.value = _uiState.value.copy(title = title) }
+    fun updateContent(content: String) { _uiState.value = _uiState.value.copy(content = content) }
+    fun pickFolder(folderId: Long?) { _uiState.value = _uiState.value.copy(folderId = folderId) }
+    fun addTag(tagId: Long) { _uiState.value = _uiState.value.copy(tagIds = _uiState.value.tagIds + tagId) }
+    fun removeTag(tagId: Long) { _uiState.value = _uiState.value.copy(tagIds = _uiState.value.tagIds - tagId) }
+    fun toggleFavorite() { _uiState.value = _uiState.value.copy(favorite = !_uiState.value.favorite) }
+    fun toggleArchived() { _uiState.value = _uiState.value.copy(archived = !_uiState.value.archived, inbox = _uiState.value.archived) }
+    fun toggleInbox() { _uiState.value = _uiState.value.copy(inbox = !_uiState.value.inbox) }
+
+    private val _linkCandidates = MutableStateFlow<List<NoteRef>>(emptyList())
+    val linkCandidates: StateFlow<List<NoteRef>> = _linkCandidates.asStateFlow()
+    private var linkSearch: Job? = null
+
+    fun searchLinkTargets(query: String) {
+        linkSearch?.cancel() // latest keystroke wins
+        linkSearch = viewModelScope.launch {
+            val currentId = noteId ?: _uiState.value.id // nav arg: uiState.id is 0 until getNote finishes
+            _linkCandidates.value = noteRepository.search(query.trim())
+                .filter { it.id != currentId && it.title.isNotBlank() }
+                .map { NoteRef(it.id, it.title) }
+        }
+    }
+
+    fun insertLink(title: String, cursor: Int?): Int {
+        val (content, newCursor) = insertLinkText(_uiState.value.content, title, cursor)
+        _uiState.value = _uiState.value.copy(content = content)
+        return newCursor
+    }
+
+    fun delete(onDeleted: () -> Unit) {
+        val id = _uiState.value.id
+        if (id == 0L) { onDeleted(); return }
+        viewModelScope.launch { noteRepository.deleteNote(id); onDeleted() }
+    }
+
+    fun save(onSaved: () -> Unit) {
+        viewModelScope.launch {
+            val state = _uiState.value
+            // Deleted elsewhere (stacked editor): saving would resurrect it. Undo-of-delete goes through the repository directly.
+            if (state.id != 0L && noteRepository.getNote(state.id) == null) { onSaved(); return@launch }
+            val now = System.currentTimeMillis()
+            noteRepository.saveNote(
+                Note(
+                    id = state.id, title = state.title, content = state.content,
+                    createdAt = state.createdAt, updatedAt = now, folderId = state.folderId,
+                    favorite = state.favorite, archived = state.archived, inbox = state.inbox,
+                    captureSource = if (state.id == 0L) CaptureSource.APP else state.captureSource,
+                    tagIds = state.tagIds
+                )
+            )
+            onSaved()
+        }
+    }
+}

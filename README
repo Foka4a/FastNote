@@ -1,1 +1,583 @@
-Aplicativo de notas rapidas
+# Quick Notes
+
+Aplicativo Android de **anotações rápidas**, desenvolvido com foco em agilidade, simplicidade e facilidade de organização.
+
+A proposta é permitir que uma ideia, lembrete ou informação seja registrada em poucos segundos, reduzindo ao máximo o número de interações necessárias para criar uma nova nota.
+
+O conceito combina a simplicidade e velocidade de captura do **Google Keep** com recursos de organização e relacionamento entre notas inspirados no **Obsidian**.
+
+---
+
+## Objetivo
+
+O principal objetivo do aplicativo é oferecer um fluxo extremamente rápido para:
+
+> Capturar primeiro. Organizar depois.
+
+O usuário poderá registrar uma informação rapidamente por texto ou voz e, posteriormente, revisar, organizar, relacionar ou arquivar essas notas.
+
+Para isso, todas as anotações capturadas rapidamente poderão ser direcionadas inicialmente para uma **Inbox**, funcionando como uma caixa de entrada para revisão.
+
+---
+
+## Plataforma
+
+Inicialmente o projeto será desenvolvido exclusivamente para:
+
+* Android
+
+---
+
+## Captura rápida
+
+A captura de informações será um dos principais diferenciais do aplicativo.
+
+O usuário poderá criar notas através de diferentes pontos de entrada.
+
+### Aplicativo
+
+Criação e edição convencional de notas através da interface principal.
+
+### Widget
+
+O aplicativo contará com um **widget para a tela inicial do Android**, permitindo criar novas notas sem precisar navegar pela interface principal.
+
+O widget deverá oferecer, principalmente:
+
+* Nova nota por texto;
+* Nova nota por voz;
+* Acesso rápido à Inbox;
+* Possibilidade de visualizar notas recentes.
+
+Fluxo esperado:
+
+```text
+Tela inicial
+     │
+     ├── Nova nota
+     │      ↓
+     │   Digitar
+     │      ↓
+     │    Salvar
+     │
+     └── Voz
+            ↓
+      Reconhecimento
+            ↓
+          Salvar
+```
+
+A prioridade será permitir que uma anotação seja registrada com o menor número possível de interações.
+
+---
+
+## Captura por voz
+
+O aplicativo utilizará reconhecimento de voz para transformar rapidamente fala em texto.
+
+Exemplo:
+
+```text
+Usuário:
+
+"Pesquisar alternativas locais para modelos de inteligência artificial"
+
+                    ↓
+
+Nota criada:
+
+Pesquisar alternativas locais para modelos de inteligência artificial
+```
+
+Após a captura, a nota poderá ser enviada diretamente para a Inbox.
+
+Dependendo das configurações do usuário, será possível:
+
+* Salvar automaticamente após o reconhecimento;
+* Revisar o texto antes de salvar;
+* Continuar editando a nota dentro do aplicativo.
+
+---
+
+# Inbox
+
+A **Inbox** será a área central de captura rápida.
+
+Todas as notas criadas através do widget, voz ou outros métodos rápidos poderão ser armazenadas inicialmente nessa área.
+
+Exemplo:
+
+```text
+Inbox
+
+├── Pesquisar biblioteca para gráficos
+├── Comprar filtro de óleo
+├── Ideia para atividade Maker
+├── Revisar documentação do projeto
+└── Pesquisar arquitetura offline-first
+```
+
+Posteriormente, o usuário poderá organizar essas notas utilizando:
+
+* Tags;
+* Pastas;
+* Favoritos;
+* Relacionamentos;
+* Arquivamento.
+
+A Inbox evita que o usuário precise decidir onde uma informação deve ser armazenada no momento em que ela é criada.
+
+---
+
+# Principais funcionalidades
+
+## Criar notas
+
+Criação rápida de notas de texto através do aplicativo ou widget.
+
+---
+
+## Editar
+
+Notas poderão ser alteradas a qualquer momento.
+
+Será possível editar:
+
+* Título;
+* Conteúdo;
+* Tags;
+* Pasta;
+* Relacionamentos;
+* Estado da nota.
+
+---
+
+## Pesquisar
+
+Sistema de pesquisa rápida entre todas as notas.
+
+A pesquisa deverá permitir encontrar conteúdo através de:
+
+* Título;
+* Texto;
+* Tags;
+* Pastas;
+* Notas relacionadas.
+
+---
+
+## Tags
+
+Notas poderão receber múltiplas tags.
+
+Exemplo:
+
+```text
+#trabalho
+#ideia
+#faculdade
+#projeto
+#pesquisa
+```
+
+Uma mesma nota poderá pertencer a diferentes contextos sem precisar ser duplicada.
+
+---
+
+## Pastas
+
+Pastas poderão ser utilizadas para organização hierárquica.
+
+Exemplo:
+
+```text
+Projetos
+├── CreativeStudio
+├── Faculdade
+└── Aplicativos
+
+Pessoal
+├── Compras
+├── Ideias
+└── Lembretes
+```
+
+---
+
+## Relacionamento entre notas
+
+Inspirado em ferramentas como Obsidian, o aplicativo permitirá criar conexões entre diferentes notas.
+
+Exemplo:
+
+```text
+Arquitetura Android
+        │
+        ├── Room
+        ├── Jetpack Compose
+        └── Widget Android
+```
+
+Uma nota poderá referenciar outras notas relacionadas.
+
+Isso permite construir uma pequena rede de conhecimento ao longo do tempo.
+
+### Como funciona (fase 2)
+
+* Escreva `[[Título da nota]]` no conteúdo ou use o botão **Ligar nota** do editor. O match ignora maiúsculas/minúsculas e espaços nas pontas.
+* Um link para uma nota que ainda não existe vira **fantasma**; ao criar uma nota com esse título, o link é resolvido.
+* Renomear uma nota reescreve `[[Título Antigo]]` em todas as notas que apontam para ela. Excluir uma nota transforma os links recebidos em fantasmas; desfazer a exclusão reinsere a nota com o mesmo id e religa esses fantasmas.
+* O editor mostra a seção **Ligações** (backlinks e links de saída). Cada linha tem alvo de toque de pelo menos 48dp; fantasmas são anunciados como "nota fantasma" e tocar neles abre uma nota nova com o título preenchido.
+* A aba **Grafo** mostra notas, tags e fantasmas: arrastar o vazio move a vista, pinça dá zoom ancorado no centro da pinça, tocar numa tag filtra o grafo (tocar de novo limpa). Os nós não têm semântica individual: o TalkBack lê apenas "Grafo com N nós".
+* **Limite conhecido:** o grafo usa simulação O(n²) e fica lento acima de ~300 nós (notas + tags + fantasmas). Evolução prevista: Barnes-Hut.
+
+---
+
+## Favoritos
+
+Notas importantes poderão ser marcadas como favoritas para acesso rápido.
+
+---
+
+## Arquivamento
+
+Notas que não precisam permanecer na área principal poderão ser arquivadas sem serem excluídas.
+
+---
+
+# Estrutura conceitual
+
+```text
+                         Quick Notes
+
+                             │
+                ┌────────────┴────────────┐
+                │                         │
+             Captura                 Organização
+                │                         │
+        ┌───────┼───────┐         ┌───────┼────────┐
+        │       │       │         │       │        │
+       App    Widget    Voz      Tags    Pastas   Links
+                │
+                ▼
+              Inbox
+                │
+                ▼
+             Revisão
+                │
+        ┌───────┼────────┐
+        │       │        │
+     Organizar Arquivar Favoritar
+```
+
+---
+
+# Stack
+
+O projeto será desenvolvido utilizando tecnologias nativas do ecossistema Android.
+
+## Kotlin
+
+Linguagem principal da aplicação.
+
+```text
+Kotlin
+```
+
+Responsável por:
+
+* Lógica da aplicação;
+* Persistência;
+* Integrações Android;
+* Widget;
+* Reconhecimento de voz.
+
+---
+
+## Jetpack Compose
+
+Responsável pela construção da interface do aplicativo.
+
+```text
+Kotlin
++
+Jetpack Compose
+```
+
+Será utilizado para desenvolver:
+
+* Tela inicial;
+* Editor de notas;
+* Inbox;
+* Pesquisa;
+* Tags;
+* Pastas;
+* Configurações.
+
+---
+
+## Room
+
+Responsável pela persistência local das informações.
+
+```text
+Room
+    │
+    ├── Notes
+    ├── Tags
+    ├── Folders
+    └── NoteRelations
+```
+
+O aplicativo deverá funcionar prioritariamente de forma **offline-first**.
+
+As notas permanecerão disponíveis mesmo sem conexão com a internet.
+
+---
+
+## Jetpack Glance
+
+Responsável pelo widget da tela inicial.
+
+```text
+Home Screen
+     │
+     ▼
+Jetpack Glance
+     │
+     ├── Criar nota
+     ├── Capturar voz
+     └── Abrir Inbox
+```
+
+---
+
+## SpeechRecognizer
+
+Responsável pela captura de notas utilizando voz.
+
+```text
+Microfone
+    ↓
+SpeechRecognizer
+    ↓
+Texto
+    ↓
+Nota
+    ↓
+Inbox
+```
+
+---
+
+# Arquitetura inicial
+
+Uma possível organização do projeto:
+
+```text
+app/
+│
+├── data/
+│   │
+│   ├── local/
+│   │   ├── database/
+│   │   ├── dao/
+│   │   └── entity/
+│   │
+│   └── repository/
+│
+├── domain/
+│   │
+│   ├── model/
+│   └── usecase/
+│
+├── ui/
+│   │
+│   ├── home/
+│   ├── inbox/
+│   ├── editor/
+│   ├── search/
+│   ├── tags/
+│   ├── folders/
+│   └── settings/
+│
+├── widget/
+│   │
+│   ├── QuickNoteWidget
+│   └── QuickNoteWidgetReceiver
+│
+├── voice/
+│   └── VoiceCapture
+│
+└── MainActivity
+```
+
+---
+
+# Modelo conceitual de uma nota
+
+Uma nota poderá conter inicialmente:
+
+```text
+Note
+
+id
+title
+content
+
+createdAt
+updatedAt
+
+folderId
+
+favorite
+archived
+inbox
+
+captureSource
+```
+
+Além disso, poderá possuir relacionamentos com:
+
+```text
+Tags
+NoteRelations
+Attachments
+```
+
+O campo `captureSource` poderá indicar como a nota foi criada.
+
+Exemplo:
+
+```text
+APP
+WIDGET_TEXT
+WIDGET_VOICE
+SHARE
+```
+
+---
+
+# Experiência desejada
+
+Um dos principais requisitos do projeto será minimizar a fricção durante a captura.
+
+Fluxos como este devem ser possíveis:
+
+### Texto
+
+```text
+Widget
+   ↓
+Nova nota
+   ↓
+Digitar
+   ↓
+Salvar
+   ↓
+Inbox
+```
+
+### Voz
+
+```text
+Widget
+   ↓
+Microfone
+   ↓
+Falar
+   ↓
+Transcrição
+   ↓
+Salvar
+   ↓
+Inbox
+```
+
+O usuário não deverá precisar escolher pasta, tags ou categoria antes de registrar uma informação.
+
+Essas decisões poderão ser tomadas posteriormente durante a revisão da Inbox.
+
+---
+
+# Princípios do projeto
+
+O desenvolvimento deverá seguir alguns princípios fundamentais.
+
+### Captura instantânea
+
+Registrar uma informação deve exigir o menor esforço possível.
+
+### Offline-first
+
+As principais funcionalidades devem funcionar sem internet.
+
+### Organização opcional
+
+O usuário poderá utilizar o aplicativo apenas como um bloco de notas simples ou construir uma estrutura mais avançada utilizando tags, pastas e relacionamentos.
+
+### Organização posterior
+
+Capturar uma informação nunca deve depender de definir previamente onde ela será armazenada.
+
+### Interface simples
+
+A interface deverá priorizar conteúdo e velocidade, evitando elementos desnecessários.
+
+### Dados do usuário
+
+As notas deverão permanecer armazenadas localmente por padrão.
+
+---
+
+# MVP
+
+A primeira versão funcional poderá priorizar:
+
+* [ ] Criar notas;
+* [ ] Editar notas;
+* [ ] Excluir notas;
+* [ ] Inbox;
+* [ ] Pesquisa;
+* [ ] Favoritos;
+* [ ] Arquivamento;
+* [ ] Tags;
+* [ ] Pastas;
+* [ ] Widget de captura por texto;
+* [ ] Captura por voz;
+* [ ] Widget de captura por voz;
+* [ ] Persistência local com Room.
+
+Após estabilizar essa base:
+
+* [ ] Relacionamento entre notas;
+* [ ] Backlinks;
+* [ ] Compartilhamento de conteúdo para o aplicativo;
+* [ ] Histórico de edição;
+* [ ] Backup;
+* [ ] Importação e exportação;
+* [ ] Sincronização opcional entre dispositivos.
+
+---
+
+# Visão futura
+
+O projeto poderá evoluir de um aplicativo simples de notas rápidas para uma ferramenta pessoal de organização de conhecimento.
+
+```text
+Captura
+   ↓
+Inbox
+   ↓
+Organização
+   ↓
+Relacionamentos
+   ↓
+Base pessoal de conhecimento
+```
+
+A captura continuará sendo simples e rápida, enquanto funcionalidades mais avançadas permanecerão disponíveis para usuários que desejarem organizar e conectar suas informações.
+
+O objetivo final é combinar:
+
+**velocidade de captura + organização flexível + conhecimento conectado.**
