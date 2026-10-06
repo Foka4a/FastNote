@@ -30,6 +30,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -71,6 +72,14 @@ fun EditorScreen(
     var contentValue by remember { mutableStateOf(TextFieldValue(state.content, TextRange(state.content.length))) }
     var cursorPlaced by remember { mutableStateOf(false) }
     var lastEmitted by remember { mutableStateOf(state.content) }
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) { // back from a stacked editor: pick up rename/delete done meanwhile
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) viewModel.refresh()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     LaunchedEffect(state.content) { // external changes only (note load); typing is never echoed back
         val current = viewModel.uiState.value.content // not the possibly stale composed value
         if (current != lastEmitted) {

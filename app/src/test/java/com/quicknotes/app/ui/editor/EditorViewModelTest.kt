@@ -197,4 +197,47 @@ class EditorViewModelTest {
 
         assertEquals(listOf(NoteRef(other, "Outra")), viewModel.linkCandidates.value)
     }
+
+    @Test
+    fun refreshAdoptsExternalRenameWhenNotEditedLocally() = runTest {
+        val repository = FakeNoteRepository()
+        val b = repository.saveNote(plainNote("Antiga"))
+        val a = repository.saveNote(plainNote("A", "ver [[Antiga]]"))
+        val editorA = editorViewModel(repository, noteId = a)
+
+        repository.saveNote(plainNote("Nova").copy(id = b)) // rename done from the stacked editor of B
+        editorA.refresh()
+        editorA.save {}
+
+        assertEquals("ver [[Nova]]", repository.getNote(a)!!.content)
+    }
+
+    @Test
+    fun refreshKeepsLocalEdits() = runTest {
+        val repository = FakeNoteRepository()
+        val b = repository.saveNote(plainNote("Antiga"))
+        val a = repository.saveNote(plainNote("A", "ver [[Antiga]]"))
+        val editorA = editorViewModel(repository, noteId = a)
+        editorA.updateContent("editado")
+
+        repository.saveNote(plainNote("Nova").copy(id = b))
+        editorA.refresh()
+
+        assertEquals("editado", editorA.uiState.value.content)
+    }
+
+    @Test
+    fun saveDoesNotResurrectDeletedNote() = runTest {
+        val repository = FakeNoteRepository()
+        val a = repository.saveNote(plainNote("A", "x"))
+        val first = editorViewModel(repository, noteId = a)
+        val second = editorViewModel(repository, noteId = a)
+
+        second.delete {}
+        var closed = false
+        first.save { closed = true }
+
+        assertTrue(closed)
+        assertTrue(repository.notes.value.isEmpty())
+    }
 }

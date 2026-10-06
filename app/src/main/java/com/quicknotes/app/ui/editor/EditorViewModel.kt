@@ -70,18 +70,32 @@ class EditorViewModel(
         (if (noteId == null) flowOf(emptyList()) else noteRepository.observeBacklinks(noteId))
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    init {
-        if (noteId != null) {
-            viewModelScope.launch {
-                noteRepository.getNote(noteId)?.let { note ->
-                    _uiState.value = EditorUiState(
-                        id = note.id, title = note.title, content = note.content,
-                        folderId = note.folderId, tagIds = note.tagIds,
-                        favorite = note.favorite, archived = note.archived, inbox = note.inbox,
-                        createdAt = note.createdAt, captureSource = note.captureSource
-                    )
-                }
+    // Title/content as last read from the DB: tells "user edited" apart from "DB changed underneath us".
+    private var baseline: Pair<String, String>? = null
+
+    init { refresh() }
+
+    /**
+     * (Re)loads the note. First call loads everything; later calls (screen resumed) only adopt
+     * title/content from the DB if the user hasn't edited them, so a rename propagated into this
+     * note by a stacked editor isn't undone on save. ponytail: concurrent edits stay last-write-wins.
+     */
+    fun refresh() {
+        if (noteId == null) return
+        viewModelScope.launch {
+            val note = noteRepository.getNote(noteId) ?: return@launch
+            val current = _uiState.value
+            if (baseline == null) {
+                _uiState.value = EditorUiState(
+                    id = note.id, title = note.title, content = note.content,
+                    folderId = note.folderId, tagIds = note.tagIds,
+                    favorite = note.favorite, archived = note.archived, inbox = note.inbox,
+                    createdAt = note.createdAt, captureSource = note.captureSource
+                )
+            } else if (baseline == current.title to current.content) {
+                _uiState.value = current.copy(title = note.title, content = note.content)
             }
+            baseline = note.title to note.content
         }
     }
 
@@ -123,6 +137,8 @@ class EditorViewModel(
     fun save(onSaved: () -> Unit) {
         viewModelScope.launch {
             val state = _uiState.value
+            // Deleted elsewhere (stacked editor): saving would resurrect it. Undo-of-delete goes through the repository directly.
+            if (state.id != 0L && noteRepository.getNote(state.id) == null) { onSaved(); return@launch }
             val now = System.currentTimeMillis()
             noteRepository.saveNote(
                 Note(

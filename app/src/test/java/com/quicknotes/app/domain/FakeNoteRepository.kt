@@ -58,7 +58,16 @@ class FakeNoteRepository : NoteRepository {
     override suspend fun saveNote(note: Note): Long {
         val id = if (note.id == 0L) nextId++ else note.id
         val saved = note.copy(id = id)
-        notes.value = notes.value.filterNot { it.id == id } + saved
+        val previous = notes.value.find { it.id == id }?.title
+        val linkers = resolvedLinks(notes.value).filter { it.targetId == id }.map { it.sourceId }.toSet()
+        var updated = notes.value.filterNot { it.id == id } + saved
+        // Mirrors the Impl: a real rename rewrites "[[Old]]" in the notes that linked to it.
+        if (!previous.isNullOrBlank() && note.title.isNotBlank() && previous.trim() != note.title.trim()) {
+            updated = updated.map { n ->
+                if (n.id in linkers && n.id != id) n.copy(content = LinkParser.renameLinks(n.content, previous, note.title)) else n
+            }
+        }
+        notes.value = updated
         return id
     }
 
