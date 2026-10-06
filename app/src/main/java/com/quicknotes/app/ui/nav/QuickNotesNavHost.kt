@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Folder
@@ -54,6 +55,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -79,6 +81,8 @@ import com.quicknotes.app.ui.folders.FolderNotesScreen
 import com.quicknotes.app.ui.folders.FoldersScreen
 import com.quicknotes.app.ui.folders.FolderNotesViewModel
 import com.quicknotes.app.ui.folders.FoldersViewModel
+import com.quicknotes.app.ui.graph.GraphScreen
+import com.quicknotes.app.ui.graph.GraphViewModel
 import com.quicknotes.app.ui.inbox.InboxScreen
 import com.quicknotes.app.ui.inbox.InboxViewModel
 import com.quicknotes.app.ui.search.SearchScreen
@@ -98,7 +102,8 @@ private val TABS = listOf(
     TabDef("inbox", "Inbox", Icons.Filled.Inbox),
     TabDef("search", "Busca", Icons.Filled.Search),
     TabDef("tags", "Tags", Icons.Filled.Tag),
-    TabDef("folders", "Pastas", Icons.Filled.Folder)
+    TabDef("folders", "Pastas", Icons.Filled.Folder),
+    TabDef("graph", "Grafo", Icons.Filled.AccountTree)
 )
 
 private data class ScreenHeader(val title: String, val subtitle: String)
@@ -107,6 +112,7 @@ private val HEADERS = mapOf(
     "search" to ScreenHeader("Busca", "título, conteúdo, tags e pastas"),
     "tags" to ScreenHeader("Tags", "uma nota pode ter várias"),
     "folders" to ScreenHeader("Pastas", "hierarquia livre"),
+    "graph" to ScreenHeader("Grafo", "notas, tags e ligações"),
     "favorites" to ScreenHeader("Favoritos", "acesso rápido às importantes"),
     "archive" to ScreenHeader("Arquivados", "fora da visão principal"),
     "settings" to ScreenHeader("Ajustes", "captura por voz, widget e permissões"),
@@ -128,6 +134,8 @@ fun QuickNotesNavHost(
     pendingRoute: String? = null,
     onRouteHandled: () -> Unit = {}
 ) {
+    // GraphViewModel lives at activity scope so node positions survive leaving the tab (spec: state preservation).
+    val activityOwner = checkNotNull(LocalViewModelStoreOwner.current)
     val navController = rememberNavController()
     val factory = ViewModelFactory(container)
     val currentEntry by navController.currentBackStackEntryAsState()
@@ -250,6 +258,14 @@ fun QuickNotesNavHost(
                     composable("folders") {
                         val vm: FoldersViewModel = viewModel(factory = factory)
                         FoldersScreen(vm, onFolderClick = { id -> navController.navigate("folder/$id") })
+                    }
+                    composable("graph") {
+                        val vm: GraphViewModel = viewModel(viewModelStoreOwner = activityOwner, factory = factory)
+                        GraphScreen(
+                            vm,
+                            onOpenNote = { id -> navController.navigate("editor?noteId=$id") },
+                            onCreateNote = { title -> navController.navigate("editor?noteId=0&prefillTitle=${Uri.encode(title)}") }
+                        )
                     }
                     composable(FOLDER_ROUTE, arguments = listOf(navArgument("folderId") { type = NavType.LongType })) { backStackEntry ->
                         val folderId = backStackEntry.arguments!!.getLong("folderId")

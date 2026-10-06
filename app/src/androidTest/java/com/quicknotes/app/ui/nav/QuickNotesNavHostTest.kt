@@ -77,4 +77,12 @@ class QuickNotesNavHostTest {
 
         composeRule.onNodeWithTag("link_picker_query").assertExists()
     }
+
+    @Test
+    fun graphTabShowsGraphCanvas() {
+        composeRule.onNodeWithTag("tab_graph").performClick()
+
+        composeRule.onNodeWithTag("graph_canvas").assertExists()
+        composeRule.onNodeWithText("notas, tags e ligações").assertExists()
+    }
 }
