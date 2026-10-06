@@ -39,4 +39,22 @@ interface NoteLinkDao {
 
     @Query("SELECT noteId, tagId FROM note_tags")
     fun observeNoteTags(): Flow<List<NoteTagRef>>
+
+    @Query("DELETE FROM note_links WHERE sourceId = :sourceId")
+    suspend fun deleteForSource(sourceId: Long)
+
+    @Query("SELECT id, title FROM notes")
+    suspend fun getNoteRefs(): List<NoteRef>
+
+    @Query("SELECT * FROM note_links WHERE targetId IS NULL")
+    suspend fun getGhostLinks(): List<NoteLinkEntity>
+
+    @Query("UPDATE note_links SET targetId = :targetId WHERE sourceId = :sourceId AND `index` = :index")
+    suspend fun setTarget(sourceId: Long, index: Int, targetId: Long)
+
+    @Query("SELECT DISTINCT sourceId FROM note_links WHERE targetId = :targetId")
+    suspend fun getSourceIdsLinkingTo(targetId: Long): List<Long>
+
+    @Query("UPDATE note_links SET targetId = NULL WHERE targetId = :targetId")
+    suspend fun clearTarget(targetId: Long)
 }

@@ -5,7 +5,9 @@ import com.quicknotes.app.data.local.dao.NoteDao
 import com.quicknotes.app.data.local.dao.NoteLinkDao
 import com.quicknotes.app.data.local.database.AppDatabase
 import com.quicknotes.app.data.local.entity.NoteEntity
+import com.quicknotes.app.data.local.entity.NoteLinkEntity
 import com.quicknotes.app.data.local.entity.NoteTagEntity
+import com.quicknotes.app.domain.link.LinkParser
 import com.quicknotes.app.domain.model.CaptureSource
 import com.quicknotes.app.domain.model.Note
 import com.quicknotes.app.domain.model.NoteGraph
@@ -34,18 +36,54 @@ class NoteRepositoryImpl(
     override suspend fun search(query: String): List<Note> = noteDao.search(query).map { it.toDomainWithTags() }
 
     override suspend fun saveNote(note: Note): Long = database.withTransaction {
+        val previousTitle = if (note.id == 0L) null else noteDao.getById(note.id)?.title
         val entity = NoteEntity(
             id = note.id, title = note.title, content = note.content,
             createdAt = note.createdAt, updatedAt = note.updatedAt, folderId = note.folderId,
             favorite = note.favorite, archived = note.archived, inbox = note.inbox,
             captureSource = note.captureSource.name
         )
+        // @Update, never REPLACE: REPLACE deletes the row and CASCADE would wipe its links.
         val id = if (note.id == 0L) noteDao.insert(entity) else { noteDao.update(entity); note.id }
         noteDao.clearNoteTags(id)
         if (note.tagIds.isNotEmpty()) {
             noteDao.insertNoteTags(note.tagIds.map { NoteTagEntity(id, it) })
         }
+
+        val titles = LinkParser.titleIndex(linkDao.getNoteRefs())
+        writeLinks(id, note.content, titles)
+        if (!previousTitle.isNullOrBlank() && previousTitle.trim() != note.title.trim()) {
+            if (note.title.isBlank()) linkDao.clearTarget(id) // keep "[[Old]]" text, links become ghosts
+            else propagateRename(id, previousTitle, note.title, titles)
+        }
+        resolveGhosts(titles)
         id
+    }
+
+    private suspend fun writeLinks(sourceId: Long, content: String, titles: Map<String, Long>) {
+        linkDao.deleteForSource(sourceId)
+        linkDao.insertAll(
+            LinkParser.extractLinks(content).map {
+                NoteLinkEntity(sourceId, it.index, titles[LinkParser.normalize(it.title)], it.title)
+            }
+        )
+    }
+
+    private suspend fun propagateRename(targetId: Long, oldTitle: String, newTitle: String, titles: Map<String, Long>) {
+        for (sourceId in linkDao.getSourceIdsLinkingTo(targetId)) {
+            val source = noteDao.getById(sourceId) ?: continue
+            val renamed = LinkParser.renameLinks(source.content, oldTitle, newTitle)
+            // updatedAt untouched: the linking note wasn't edited by its user.
+            if (renamed != source.content) noteDao.update(source.copy(content = renamed))
+            writeLinks(sourceId, renamed, titles)
+        }
+    }
+
+    // ponytail: scans every ghost on each save; fine for a personal notes DB, index targetTitle_normalized if it ever shows up in profiling.
+    private suspend fun resolveGhosts(titles: Map<String, Long>) {
+        for (ghost in linkDao.getGhostLinks()) {
+            titles[LinkParser.normalize(ghost.targetTitle)]?.let { linkDao.setTarget(ghost.sourceId, ghost.index, it) }
+        }
     }
 
     override suspend fun deleteNote(id: Long) = noteDao.delete(id)
