@@ -69,4 +69,12 @@ class QuickNotesNavHostTest {
         composeRule.onNodeWithText("DEPOIS DE TRANSCREVER A VOZ").assertExists()
         composeRule.onNodeWithText("Revisar antes de salvar").assertExists()
     }
+
+    @Test
+    fun linkButtonOpensNotePicker() {
+        composeRule.onNodeWithTag("new_note_fab").performClick()
+        composeRule.onNodeWithContentDescription("Ligar nota").performClick()
+
+        composeRule.onNodeWithTag("link_picker_query").assertExists()
+    }
 }

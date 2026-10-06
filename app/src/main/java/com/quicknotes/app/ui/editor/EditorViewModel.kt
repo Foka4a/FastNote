@@ -11,6 +11,7 @@ import com.quicknotes.app.domain.model.Tag
 import com.quicknotes.app.domain.repository.FolderRepository
 import com.quicknotes.app.domain.repository.NoteRepository
 import com.quicknotes.app.domain.repository.TagRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -31,6 +32,17 @@ data class EditorUiState(
     val createdAt: Long = System.currentTimeMillis(),
     val captureSource: CaptureSource = CaptureSource.APP
 )
+
+/** Inserts `[[title]]` at [cursor], or on a new last line when there is no cursor. Returns text + new cursor. */
+internal fun insertLinkText(content: String, title: String, cursor: Int?): Pair<String, Int> {
+    val link = "[[${title.trim()}]]"
+    if (cursor == null) {
+        val prefix = if (content.isEmpty() || content.endsWith("\n")) content else content + "\n"
+        return (prefix + link).let { it to it.length }
+    }
+    val at = cursor.coerceIn(0, content.length)
+    return content.substring(0, at) + link + content.substring(at) to at + link.length
+}
 
 class EditorViewModel(
     private val noteRepository: NoteRepository,
@@ -81,6 +93,26 @@ class EditorViewModel(
     fun toggleFavorite() { _uiState.value = _uiState.value.copy(favorite = !_uiState.value.favorite) }
     fun toggleArchived() { _uiState.value = _uiState.value.copy(archived = !_uiState.value.archived, inbox = _uiState.value.archived) }
     fun toggleInbox() { _uiState.value = _uiState.value.copy(inbox = !_uiState.value.inbox) }
+
+    private val _linkCandidates = MutableStateFlow<List<NoteRef>>(emptyList())
+    val linkCandidates: StateFlow<List<NoteRef>> = _linkCandidates.asStateFlow()
+    private var linkSearch: Job? = null
+
+    fun searchLinkTargets(query: String) {
+        linkSearch?.cancel() // latest keystroke wins
+        linkSearch = viewModelScope.launch {
+            val currentId = _uiState.value.id
+            _linkCandidates.value = noteRepository.search(query.trim())
+                .filter { it.id != currentId && it.title.isNotBlank() }
+                .map { NoteRef(it.id, it.title) }
+        }
+    }
+
+    fun insertLink(title: String, cursor: Int?): Int {
+        val (content, newCursor) = insertLinkText(_uiState.value.content, title, cursor)
+        _uiState.value = _uiState.value.copy(content = content)
+        return newCursor
+    }
 
     fun delete(onDeleted: () -> Unit) {
         val id = _uiState.value.id

@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Unarchive
 import androidx.compose.material.icons.outlined.Star
@@ -29,10 +30,17 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -57,6 +65,14 @@ fun EditorScreen(
     val folders by viewModel.allFolders.collectAsState()
     val outgoing by viewModel.outgoingLinks.collectAsState()
     val backlinks by viewModel.backlinks.collectAsState()
+    val linkCandidates by viewModel.linkCandidates.collectAsState()
+    var pickerOpen by remember { mutableStateOf(false) }
+    // Local TextFieldValue so we know the cursor; "cursor defined" = the user has focused the field.
+    var contentValue by remember { mutableStateOf(TextFieldValue(state.content)) }
+    var cursorPlaced by remember { mutableStateOf(false) }
+    LaunchedEffect(state.content) { // async note load / prefill
+        if (state.content != contentValue.text) contentValue = TextFieldValue(state.content, TextRange(state.content.length))
+    }
 
     Column(Modifier.fillMaxSize()) {
         Row(
@@ -71,6 +87,9 @@ fun EditorScreen(
                 color = Nocturne.TextMuted, fontSize = 11.sp,
                 modifier = Modifier.weight(1f)
             )
+            IconButton(onClick = { pickerOpen = true }) {
+                Icon(Icons.Filled.Link, contentDescription = "Ligar nota", tint = Nocturne.TextSecondary)
+            }
             IconButton(onClick = viewModel::toggleFavorite) {
                 Icon(
                     if (state.favorite) Icons.Filled.Star else Icons.Outlined.Star,
@@ -102,8 +121,10 @@ fun EditorScreen(
             }
             item {
                 PlainField(
-                    value = state.content, onValueChange = viewModel::updateContent,
-                    placeholder = "Escreva…", fontSize = 14.5.sp, minHeight = 180.dp
+                    value = contentValue,
+                    onValueChange = { contentValue = it; viewModel.updateContent(it.text) },
+                    placeholder = "Escreva…", fontSize = 14.5.sp, minHeight = 180.dp,
+                    modifier = Modifier.onFocusChanged { if (it.isFocused) cursorPlaced = true }
                 )
             }
             item {
@@ -156,6 +177,18 @@ fun EditorScreen(
                 }
             }
         }
+        if (pickerOpen) {
+            LinkPickerSheet(
+                candidates = linkCandidates,
+                onQueryChange = viewModel::searchLinkTargets,
+                onPick = { ref ->
+                    pickerOpen = false
+                    val cursor = viewModel.insertLink(ref.title, if (cursorPlaced) contentValue.selection.end else null)
+                    contentValue = TextFieldValue(viewModel.uiState.value.content, TextRange(cursor))
+                },
+                onDismiss = { pickerOpen = false }
+            )
+        }
     }
 }
 
@@ -170,30 +203,49 @@ private fun editorMeta(state: EditorUiState): String {
 }
 
 @Composable
+private fun plainColors() = OutlinedTextFieldDefaults.colors(
+    focusedContainerColor = Color.Transparent,
+    unfocusedContainerColor = Color.Transparent,
+    focusedBorderColor = Color.Transparent,
+    unfocusedBorderColor = Color.Transparent,
+    cursorColor = Nocturne.Accent
+)
+
+private fun plainStyle(fontSize: androidx.compose.ui.unit.TextUnit, fontWeight: FontWeight?) =
+    TextStyle(color = Nocturne.TextPrimary, fontSize = fontSize, fontWeight = fontWeight, lineHeight = fontSize * 1.5f)
+
+@Composable
 private fun PlainField(
     value: String,
     onValueChange: (String) -> Unit,
     placeholder: String,
     fontSize: androidx.compose.ui.unit.TextUnit,
-    fontWeight: FontWeight? = null,
-    minHeight: androidx.compose.ui.unit.Dp = androidx.compose.ui.unit.Dp.Unspecified
+    fontWeight: FontWeight? = null
 ) {
     OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
+        value = value, onValueChange = onValueChange,
         placeholder = { Text(placeholder, color = Nocturne.TextMuted, fontSize = fontSize) },
-        textStyle = TextStyle(color = Nocturne.TextPrimary, fontSize = fontSize, fontWeight = fontWeight, lineHeight = fontSize * 1.5f),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedContainerColor = Color.Transparent,
-            unfocusedContainerColor = Color.Transparent,
-            focusedBorderColor = Color.Transparent,
-            unfocusedBorderColor = Color.Transparent,
-            cursorColor = Nocturne.Accent
-        ),
+        textStyle = plainStyle(fontSize, fontWeight), colors = plainColors(),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
-        modifier = Modifier
-            .fillMaxWidth()
-            .let { if (minHeight != androidx.compose.ui.unit.Dp.Unspecified) it.height(minHeight) else it }
+        modifier = Modifier.fillMaxWidth()
+    )
+}
+
+@Composable
+private fun PlainField(
+    value: TextFieldValue,
+    onValueChange: (TextFieldValue) -> Unit,
+    placeholder: String,
+    fontSize: androidx.compose.ui.unit.TextUnit,
+    minHeight: androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier
+) {
+    OutlinedTextField(
+        value = value, onValueChange = onValueChange,
+        placeholder = { Text(placeholder, color = Nocturne.TextMuted, fontSize = fontSize) },
+        textStyle = plainStyle(fontSize, null), colors = plainColors(),
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
+        modifier = modifier.fillMaxWidth().height(minHeight)
     )
 }
 

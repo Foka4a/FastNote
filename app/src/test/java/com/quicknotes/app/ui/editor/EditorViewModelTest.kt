@@ -165,4 +165,36 @@ class EditorViewModelTest {
         viewModel.toggleFavorite()
         assertTrue(viewModel.uiState.value.favorite)
     }
+
+    @Test
+    fun insertLinkTextPlacesLinkAtCursorOrOnNewLine() {
+        assertEquals("ver [[B]] agora" to 9, insertLinkText("ver  agora", "B", cursor = 4))
+        assertEquals("texto\n[[B]]" to 11, insertLinkText("texto", " B ", cursor = null))
+        assertEquals("[[B]]" to 5, insertLinkText("", "B", cursor = null))
+        assertEquals("a\n[[B]]" to 7, insertLinkText("a\n", "B", cursor = null))
+        assertEquals("ab[[B]]" to 7, insertLinkText("ab", "B", cursor = 99))
+    }
+
+    @Test
+    fun insertLinkUpdatesContentAndReturnsCursor() = runTest {
+        val viewModel = editorViewModel(FakeNoteRepository(), noteId = null, prefillContent = "ver  agora")
+
+        val cursor = viewModel.insertLink("Plano de aula", cursor = 4)
+
+        assertEquals("ver [[Plano de aula]] agora", viewModel.uiState.value.content)
+        assertEquals(21, cursor)
+    }
+
+    @Test
+    fun linkCandidatesExcludeCurrentAndUntitledNotes() = runTest {
+        val repository = FakeNoteRepository()
+        val current = repository.saveNote(plainNote("Atual"))
+        val other = repository.saveNote(plainNote("Outra"))
+        repository.saveNote(plainNote("   ", "captura sem título"))
+        val viewModel = editorViewModel(repository, noteId = current)
+
+        viewModel.searchLinkTargets("")
+
+        assertEquals(listOf(NoteRef(other, "Outra")), viewModel.linkCandidates.value)
+    }
 }
