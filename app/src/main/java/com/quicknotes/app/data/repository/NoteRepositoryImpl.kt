@@ -88,7 +88,11 @@ class NoteRepositoryImpl(
         }
     }
 
-    override suspend fun deleteNote(id: Long) = noteDao.delete(id)
+    override suspend fun deleteNote(id: Long) = database.withTransaction {
+        noteDao.delete(id)
+        // Links that just became ghosts may match another note with the same title.
+        resolveGhosts(LinkParser.titleIndex(linkDao.getNoteRefs()))
+    }
     override suspend fun setFavorite(id: Long, favorite: Boolean) = noteDao.setFavorite(id, favorite)
     override suspend fun setArchived(id: Long, archived: Boolean) = noteDao.setArchived(id, archived)
 

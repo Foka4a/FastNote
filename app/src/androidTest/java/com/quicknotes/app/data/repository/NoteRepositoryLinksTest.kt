@@ -172,4 +172,16 @@ class NoteRepositoryLinksTest {
         assertEquals(listOf(NoteLinkEntity(src, 0, null, "Rascunho")), links(src))
         assertEquals(dono, repository.saveNote(note("Plano", id = dono)))
     }
+
+    @Test
+    fun deletingTargetRelinksGhostsToAnotherNoteWithSameTitle() = runBlocking {
+        val primeira = repository.saveNote(note("Alvo"))
+        val segunda = repository.saveNote(note("alvo"))
+        val src = repository.saveNote(note("Fonte", "[[Alvo]]"))
+        assertEquals(primeira, links(src).single().targetId)
+
+        repository.deleteNote(primeira)
+
+        assertEquals(segunda, links(src).single().targetId)
+    }
 }
