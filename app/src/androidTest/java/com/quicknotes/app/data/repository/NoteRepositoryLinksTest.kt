@@ -159,4 +159,17 @@ class NoteRepositoryLinksTest {
         assertEquals("Fonte", repository.getNote(fonte)!!.title)
         assertEquals(listOf(NoteLinkEntity(fonte, 0, alvo, "Alvo")), links(fonte))
     }
+
+    @Test
+    fun renamingToTitleOwnedByAnotherNoteTurnsLinksIntoGhosts() = runBlocking {
+        val dono = repository.saveNote(note("Plano"))
+        val alvo = repository.saveNote(note("Rascunho"))
+        val src = repository.saveNote(note("Fonte", "[[Rascunho]]"))
+
+        repository.saveNote(note("plano", id = alvo))
+
+        assertEquals("[[Rascunho]]", repository.getNote(src)!!.content)
+        assertEquals(listOf(NoteLinkEntity(src, 0, null, "Rascunho")), links(src))
+        assertEquals(dono, repository.saveNote(note("Plano", id = dono)))
+    }
 }

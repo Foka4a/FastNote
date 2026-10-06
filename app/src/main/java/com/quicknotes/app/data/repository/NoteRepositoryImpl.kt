@@ -54,7 +54,8 @@ class NoteRepositoryImpl(
         val titles = LinkParser.titleIndex(linkDao.getNoteRefs())
         writeLinks(id, note.content, titles)
         if (!previousTitle.isNullOrBlank() && previousTitle.trim() != note.title.trim()) {
-            if (note.title.isBlank()) linkDao.clearTarget(id) // keep "[[Old]]" text, links become ghosts
+            // Blank or already owned by an older note: keep "[[Old]]" text, links become ghosts (rewriting would be irreversible).
+            if (note.title.isBlank() || titles[LinkParser.normalize(note.title)] != id) linkDao.clearTarget(id)
             else propagateRename(id, previousTitle, note.title, titles)
         }
         resolveGhosts(titles)
