@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateCentroid
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -120,8 +121,12 @@ fun GraphScreen(viewModel: GraphViewModel, onOpenNote: (Long) -> Unit, onCreateN
                             if (pressed.size >= 2) { // pinch zoom + two-finger pan
                                 moved = true
                                 dragKey?.let { layout.release(it); dragKey = null }
-                                scale = (scale * event.calculateZoom()).coerceIn(0.3f, 3f)
+                                val newScale = (scale * event.calculateZoom()).coerceIn(0.3f, 3f)
                                 offset += event.calculatePan()
+                                // keep the world point under the pinch centroid fixed
+                                val c = event.calculateCentroid() - Offset(size.width / 2f, size.height / 2f)
+                                offset = c - (c - offset) * (newScale / scale)
+                                scale = newScale
                             } else {
                                 val change = pressed.first()
                                 if (!moved && (change.position - down.position).getDistance() > viewConfiguration.touchSlop) {
@@ -140,6 +145,7 @@ fun GraphScreen(viewModel: GraphViewModel, onOpenNote: (Long) -> Unit, onCreateN
                         }
                         dragKey?.let { layout.release(it); dragKey = null }
                         if (!moved && hit != null) onTap(hit)
+                        if (moved) wake++ // pan/zoom may reveal culled (frozen) bodies: restart the simulation
                     }
                 }
         ) {
