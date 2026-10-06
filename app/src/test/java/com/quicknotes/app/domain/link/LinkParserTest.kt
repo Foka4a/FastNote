@@ -64,4 +64,9 @@ class LinkParserTest {
             LinkParser.renameLinks("x [[C++ & 100% (rascunho)]] y", "C++ & 100% (rascunho)", "Nova (v2) \$1")
         )
     }
+
+    @Test
+    fun renameWithBlankOldTitleKeepsBlankLinks() {
+        assertEquals("a [[  ]] b", LinkParser.renameLinks("a [[  ]] b", "  ", "X"))
+    }
 }

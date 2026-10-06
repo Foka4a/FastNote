@@ -33,6 +33,7 @@ object LinkParser {
     /** Rewrites every `[[oldTitle]]` (any case/padding) to `[[newTitle]]`; the replacement is literal (no `$` groups). */
     fun renameLinks(content: String, oldTitle: String, newTitle: String): String {
         val old = normalize(oldTitle)
+        if (old.isEmpty()) return content // blank [[ ]] is not a link
         return LINK.replace(content) { match ->
             if (normalize(match.groupValues[1]) == old) "[[${newTitle.trim()}]]" else match.value
         }
