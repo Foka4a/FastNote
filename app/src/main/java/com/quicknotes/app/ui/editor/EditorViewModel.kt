@@ -101,7 +101,7 @@ class EditorViewModel(
     fun searchLinkTargets(query: String) {
         linkSearch?.cancel() // latest keystroke wins
         linkSearch = viewModelScope.launch {
-            val currentId = _uiState.value.id
+            val currentId = noteId ?: _uiState.value.id // nav arg: uiState.id is 0 until getNote finishes
             _linkCandidates.value = noteRepository.search(query.trim())
                 .filter { it.id != currentId && it.title.isNotBlank() }
                 .map { NoteRef(it.id, it.title) }

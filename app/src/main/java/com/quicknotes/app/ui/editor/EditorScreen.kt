@@ -68,10 +68,15 @@ fun EditorScreen(
     val linkCandidates by viewModel.linkCandidates.collectAsState()
     var pickerOpen by remember { mutableStateOf(false) }
     // Local TextFieldValue so we know the cursor; "cursor defined" = the user has focused the field.
-    var contentValue by remember { mutableStateOf(TextFieldValue(state.content)) }
+    var contentValue by remember { mutableStateOf(TextFieldValue(state.content, TextRange(state.content.length))) }
     var cursorPlaced by remember { mutableStateOf(false) }
-    LaunchedEffect(state.content) { // async note load / prefill
-        if (state.content != contentValue.text) contentValue = TextFieldValue(state.content, TextRange(state.content.length))
+    var lastEmitted by remember { mutableStateOf(state.content) }
+    LaunchedEffect(state.content) { // external changes only (note load); typing is never echoed back
+        val current = viewModel.uiState.value.content // not the possibly stale composed value
+        if (current != lastEmitted) {
+            lastEmitted = current
+            contentValue = TextFieldValue(current, TextRange(current.length))
+        }
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -122,7 +127,7 @@ fun EditorScreen(
             item {
                 PlainField(
                     value = contentValue,
-                    onValueChange = { contentValue = it; viewModel.updateContent(it.text) },
+                    onValueChange = { contentValue = it; lastEmitted = it.text; viewModel.updateContent(it.text) },
                     placeholder = "Escreva…", fontSize = 14.5.sp, minHeight = 180.dp,
                     modifier = Modifier.onFocusChanged { if (it.isFocused) cursorPlaced = true }
                 )
@@ -184,7 +189,8 @@ fun EditorScreen(
                 onPick = { ref ->
                     pickerOpen = false
                     val cursor = viewModel.insertLink(ref.title, if (cursorPlaced) contentValue.selection.end else null)
-                    contentValue = TextFieldValue(viewModel.uiState.value.content, TextRange(cursor))
+                    lastEmitted = viewModel.uiState.value.content
+                    contentValue = TextFieldValue(lastEmitted, TextRange(cursor))
                 },
                 onDismiss = { pickerOpen = false }
             )
